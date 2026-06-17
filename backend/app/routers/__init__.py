@@ -1,0 +1,12 @@
+from .auth import router as auth_router
+from .achats import router as achats_router
+from .ventes import router as ventes_router
+from .transformations import router as transformations_router
+from .rapports import router as rapports_router
+from .zones import router as zones_router
+from .producteurs import router as producteurs_router
+from .utilisateurs import router as utilisateurs_router
+from .usines import router as usines_router
+from .parametres import router as parametres_router
+from .stats import router as stats_router
+from .exportations import router as exportations_router
