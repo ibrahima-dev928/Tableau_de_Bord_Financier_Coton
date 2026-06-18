@@ -16,7 +16,8 @@ from app.routers import (
     utilisateurs_router,
     usines_router,
     exportations_router,
-    parametres_router
+    parametres_router,
+    logs_router
 )
 
 app = FastAPI(title="SODECOTON Financial Dashboard API")
@@ -45,6 +46,7 @@ app.include_router(usines_router, prefix="/api/usines", tags=["Usines"])
 app.include_router(exportations_router, prefix="/api/exportations", tags=["Exportations"])
 app.include_router(parametres_router, prefix="/api/parametres", tags=["Paramètres"])
 app.include_router(stats_router, prefix="/api/stats", tags=["Statistiques"])
+app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
 
 @app.get("/")
 def root():

@@ -10,3 +10,4 @@ from .usines import router as usines_router
 from .parametres import router as parametres_router
 from .stats import router as stats_router
 from .exportations import router as exportations_router
+from .logs import router as logs_router

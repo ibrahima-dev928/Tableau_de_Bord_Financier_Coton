@@ -4,6 +4,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, backref  # ← ajout de backref
 from sqlalchemy.sql import func
 from app.base import Base
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, String, Numeric, DateTime, Boolean, ForeignKey, CheckConstraint, Date
 
 
 class User(Base):
@@ -110,6 +112,25 @@ class Vente(Base):
 
     saisi_par = relationship("User", back_populates="ventes")
 
+class LogAudit(Base):
+    __tablename__ = "logs_audit"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    utilisateur_id = Column(UUID(as_uuid=True), ForeignKey("utilisateurs.id"))
+    action = Column(String, nullable=False)
+    table_concernee = Column(String)
+    ancienne_valeur = Column(JSONB, nullable=True)
+    nouvelle_valeur = Column(JSONB, nullable=True)
+    date_action = Column(DateTime(timezone=True), server_default=func.now())
+    ip_adresse = Column(String)
+
+class Campagne(Base):
+    __tablename__ = "campagnes"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    libelle = Column(String(100))
+    date_debut = Column(Date)
+    date_fin = Column(Date)
+    objectif_tonnes = Column(Numeric(12,2))
+    est_active = Column(Boolean, default=True)
 
 class Rapport(Base):
     __tablename__ = "rapports"
