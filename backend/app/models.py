@@ -71,17 +71,24 @@ class Achat(Base):
     date_achat = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     producteur_id = Column(UUID(as_uuid=True), ForeignKey("producteurs.id"), nullable=False)
     zone_id = Column(UUID(as_uuid=True), ForeignKey("zones.id"), nullable=False)
-    quantite_kg = Column(Numeric(12, 2), nullable=False)
-    prix_kg = Column(Numeric(10, 2), nullable=False)
-    montant_total = Column(Numeric(15, 2), nullable=False)
+    quantite_kg = Column(Numeric(12,2), nullable=False)
+    prix_kg = Column(Numeric(10,2), nullable=False)
+    montant_total = Column(Numeric(15,2), nullable=False)
     saisi_par_id = Column(UUID(as_uuid=True), ForeignKey("utilisateurs.id"), nullable=False)
     statut = Column(String, default="en_attente")
+    
+    # NOUVELLES COLONNES (ajoutées)
+    campagne_id = Column(UUID(as_uuid=True), ForeignKey("campagnes.id"), nullable=True)
+    paye = Column(Boolean, default=False)
+    montant_paye = Column(Numeric(15,2), default=0)
 
-    producteur = relationship("Producteur", back_populates="achats")
-    zone = relationship("Zone", back_populates="achats")
-    saisi_par = relationship("User", back_populates="achats")
     __table_args__ = (CheckConstraint("statut IN ('en_attente','valide','rejete')"),)
 
+    # Relations
+    producteur = relationship("Producteur", back_populates="achats")
+    zone = relationship("Zone", back_populates="achats")
+    saisi_par = relationship("User", foreign_keys=[saisi_par_id], back_populates="achats")
+    campagne = relationship("Campagne", back_populates="achats")  # si vous créez la relation
 
 class Transformation(Base):
     __tablename__ = "transformations"
@@ -130,6 +137,7 @@ class Campagne(Base):
     date_debut = Column(Date)
     date_fin = Column(Date)
     objectif_tonnes = Column(Numeric(12,2))
+    achats = relationship("Achat", back_populates="campagne")
     est_active = Column(Boolean, default=True)
 
 class Rapport(Base):

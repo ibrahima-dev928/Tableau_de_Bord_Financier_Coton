@@ -1,5 +1,4 @@
 // @ts-nocheck
-// src/pages/Direction/DashboardDirection.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -23,6 +22,13 @@ import * as Recharts from 'recharts';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 
+// Composants de vue (dans src/components/)
+import AgricultureView from '../../components/AgricultureView';
+import EgrenageView from '../../components/EgrenageView';
+import VentesView from '../../components/VentesView';
+import DateFilter from '../../components/DateFilter';
+
+// ==================== INTERFACES ====================
 interface CampagneData {
   prevu: number;
   collecte: number;
@@ -44,11 +50,13 @@ interface ZoneItem {
   realisation: number;
 }
 
+// ==================== COMPOSANT PRINCIPAL ====================
 export default function DashboardDirection() {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Données principales
   const [campagne, setCampagne] = useState<CampagneData>({
     prevu: 0,
     collecte: 0,
@@ -58,37 +66,40 @@ export default function DashboardDirection() {
   const [tendanceData, setTendanceData] = useState<TendanceItem[]>([]);
   const [zonesData, setZonesData] = useState<ZoneItem[]>([]);
 
+  // États pour les vues détaillées
+  const [activeView, setActiveView] = useState<'agriculture' | 'egrenage' | 'ventes'>('agriculture');
+  const [dateFilter, setDateFilter] = useState('today');
+
+  // Données statiques pour le camembert (à remplacer par des données dynamiques si besoin)
   const exportLocalData = [
     { name: 'Export', value: 65 },
     { name: 'Marché local', value: 35 }
   ];
   const PIE_COLORS = ['#3B82F6', '#F59E0B'];
 
+  // ==================== CHARGEMENT DES DONNÉES (vrais KPIs) ====================
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
+        // Appels aux endpoints réels (pas de mock)
         const [campagneRes, tendanceRes, zonesRes] = await Promise.all([
           api.get('/stats/suivi_campagne'),
           api.get('/stats/tendances'),
           api.get('/stats/comparaison_zones')
         ]);
 
+        // Mise à jour avec les données reçues
         setCampagne(campagneRes.data);
         setTendanceData(tendanceRes.data || []);
         setZonesData(zonesRes.data || []);
       } catch (err) {
-        console.error('Erreur lors du chargement des données :', err);
+        console.error('Erreur lors du chargement des KPIs :', err);
         setError('Impossible de charger les données. Veuillez réessayer.');
 
-        // ✅ SUPPRESSION DES MOCK : on réinitialise tout à zéro
-        setCampagne({
-          prevu: 0,
-          collecte: 0,
-          reste: 0,
-          taux: 0
-        });
+        // ❌ AUCUN MOCK – on réinitialise à zéro pour ne pas afficher de fausses données
+        setCampagne({ prevu: 0, collecte: 0, reste: 0, taux: 0 });
         setTendanceData([]);
         setZonesData([]);
       } finally {
@@ -97,8 +108,11 @@ export default function DashboardDirection() {
     };
 
     fetchData();
+    // Le token est une dépendance, mais on veut recharger si l'utilisateur change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // ==================== RENDU ====================
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
@@ -109,6 +123,7 @@ export default function DashboardDirection() {
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f5f6fa', minHeight: '100vh' }}>
+      {/* En-tête */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight="bold" color="primary">
           Tableau de bord — Direction
@@ -118,13 +133,9 @@ export default function DashboardDirection() {
         </Typography>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-      {/* ========== SUIVI DE LA CAMPAGNE ========== */}
+      {/* ========== SECTION 1 : SUIVI DE LA CAMPAGNE ========== */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" fontWeight="bold">
@@ -183,7 +194,7 @@ export default function DashboardDirection() {
         </Grid>
       </Paper>
 
-      {/* ========== GRAPHIQUE ÉVOLUTION MENSUELLE ========== */}
+      {/* ========== SECTION 2 : GRAPHIQUE ÉVOLUTION ========== */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           📊 Évolution mensuelle — Volume et Marge
@@ -219,7 +230,7 @@ export default function DashboardDirection() {
         </Typography>
       </Paper>
 
-      {/* ========== RÉPARTITION EXPORT/LOCAL + CHAÎNE DE VALEUR ========== */}
+      {/* ========== SECTION 3 : EXPORT / LOCAL + CHAÎNE DE VALEUR ========== */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, height: '100%' }}>
@@ -290,7 +301,40 @@ export default function DashboardDirection() {
         </Grid>
       </Grid>
 
-      {/* ========== COMPARAISON PAR ZONE ========== */}
+      {/* ========== SECTION 4 : VUES DÉTAILLÉES (AGRICULTURE / ÉGRENAGE / VENTES) ========== */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant={activeView === 'agriculture' ? 'contained' : 'outlined'}
+              onClick={() => setActiveView('agriculture')}
+            >
+              🌾 Agriculture
+            </Button>
+            <Button
+              variant={activeView === 'egrenage' ? 'contained' : 'outlined'}
+              onClick={() => setActiveView('egrenage')}
+            >
+              ⚙️ Égrenage
+            </Button>
+            <Button
+              variant={activeView === 'ventes' ? 'contained' : 'outlined'}
+              onClick={() => setActiveView('ventes')}
+            >
+              📦 Ventes
+            </Button>
+          </Box>
+          <Box sx={{ ml: 'auto' }}>
+            <DateFilter value={dateFilter} onChange={setDateFilter} />
+          </Box>
+        </Box>
+
+        {activeView === 'agriculture' && <AgricultureView dateFilter={dateFilter} />}
+        {activeView === 'egrenage' && <EgrenageView dateFilter={dateFilter} />}
+        {activeView === 'ventes' && <VentesView dateFilter={dateFilter} />}
+      </Paper>
+
+      {/* ========== SECTION 5 : DÉTAIL PAR ZONE ========== */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
           📋 Détail par Zone avec taux de réalisation
@@ -342,6 +386,7 @@ export default function DashboardDirection() {
         </TableContainer>
       </Paper>
 
+      {/* Pied de page – profil utilisateur */}
       <Box
         sx={{
           mt: 3,
