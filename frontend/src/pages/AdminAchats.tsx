@@ -21,6 +21,7 @@ interface Achat {
   montant_total: number;
   statut: 'en_attente' | 'valide' | 'rejete';
   saisi_par_id: string;
+  saisi_par_nom?: string;
 }
 
 export default function AdminAchats() {
@@ -199,6 +200,7 @@ export default function AdminAchats() {
                     <TableCell>{new Date(a.date_achat).toLocaleDateString()}</TableCell>
                     <TableCell>{a.producteur_nom || a.producteur_id}</TableCell>
                     <TableCell>{a.zone_nom || a.zone_id}</TableCell>
+                    <TableCell>{a.saisi_par_nom || a.saisi_par_id}</TableCell>
                     <TableCell align="right">{a.quantite_kg}</TableCell>
                     <TableCell align="right">{a.prix_kg}</TableCell>
                     <TableCell align="right">{a.montant_total.toLocaleString()} FCFA</TableCell>

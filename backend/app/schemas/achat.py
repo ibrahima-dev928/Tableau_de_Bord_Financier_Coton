@@ -2,6 +2,7 @@ from pydantic import BaseModel, computed_field
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 class AchatBase(BaseModel):
     date_achat: datetime
@@ -14,6 +15,14 @@ class AchatCreate(AchatBase):
     pass
 
 class AchatResponse(AchatBase):
+    id: UUID
+    montant_total: Decimal
+    statut: str
+    saisi_par_id: UUID
+    producteur_nom: Optional[str] = None
+    zone_nom: Optional[str] = None
+    saisi_par_nom: Optional[str] = None
+    # ...
     id: UUID
     montant_total: Decimal
     statut: str

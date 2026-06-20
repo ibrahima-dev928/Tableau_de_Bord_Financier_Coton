@@ -38,12 +38,31 @@ def get_achats(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    query = db.query(models.Achat)
-    # Restriction selon rôle
-    if current_user.role == "Responsable_terrain":
-        query = query.filter(models.Achat.zone_id == current_user.zone_id)
-    achats = query.offset(skip).limit(limit).all()
-    return achats
+    query = db.query(models.Achat).offset(skip).limit(limit)
+    achats = query.all()
+    # Transformer pour ajouter les noms
+    result = []
+    for a in achats:
+        # Récupérer les objets liés
+        producteur = db.query(models.Producteur).filter(models.Producteur.id == a.producteur_id).first()
+        zone = db.query(models.Zone).filter(models.Zone.id == a.zone_id).first()
+        saisi_par = db.query(models.User).filter(models.User.id == a.saisi_par_id).first()
+        result.append({
+            "id": a.id,
+            "date_achat": a.date_achat,
+            "producteur_id": a.producteur_id,
+            "producteur_nom": f"{producteur.nom} {producteur.prenom}" if producteur else None,
+            "zone_id": a.zone_id,
+            "zone_nom": zone.nom if zone else None,
+            "quantite_kg": a.quantite_kg,
+            "prix_kg": a.prix_kg,
+            "montant_total": a.montant_total,
+            "saisi_par_id": a.saisi_par_id,
+            "saisi_par_nom": saisi_par.nom if saisi_par else None,
+            "statut": a.statut
+        })
+    return result
+
 
 @router.get("/{achat_id}", response_model=schemas.AchatResponse)
 def get_achat(
