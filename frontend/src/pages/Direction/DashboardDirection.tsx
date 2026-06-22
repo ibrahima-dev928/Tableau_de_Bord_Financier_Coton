@@ -50,6 +50,13 @@ interface ZoneItem {
   realisation: number;
 }
 
+interface PrevisionVente {
+  produit: string;
+  volume_prevu_tonnes: number;
+  prix_vente_prevu: number;
+  cout_logistique_estime: number;
+}
+
 // ==================== COMPOSANT PRINCIPAL ====================
 export default function DashboardDirection() {
   const { token } = useAuth();
@@ -68,37 +75,39 @@ export default function DashboardDirection() {
 
   // États pour les vues détaillées
   const [activeView, setActiveView] = useState<'agriculture' | 'egrenage' | 'ventes'>('agriculture');
-  const [dateFilter, setDateFilter] = useState('today');
+  const [dateFilter, setDateFilter] = useState('1year');
 
-  // Données statiques pour le camembert (à remplacer par des données dynamiques si besoin)
+  // ========== NOUVEAUX ÉTATS POUR LES PRÉVISIONS ==========
+  const [egrenagePrevu, setEgrenagePrevu] = useState(0);
+  const [egrenageRendement, setEgrenageRendement] = useState(0);
+  const [egrenageCout, setEgrenageCout] = useState(0);
+  const [ventesPrevisions, setVentesPrevisions] = useState<PrevisionVente[]>([]);
+
+  // Données statiques pour le camembert
   const exportLocalData = [
     { name: 'Export', value: 65 },
     { name: 'Marché local', value: 35 }
   ];
   const PIE_COLORS = ['#3B82F6', '#F59E0B'];
 
-  // ==================== CHARGEMENT DES DONNÉES (vrais KPIs) ====================
+  // ==================== CHARGEMENT DES KPIS ====================
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        // Appels aux endpoints réels (pas de mock)
         const [campagneRes, tendanceRes, zonesRes] = await Promise.all([
           api.get('/stats/suivi_campagne'),
           api.get('/stats/tendances'),
           api.get('/stats/comparaison_zones')
         ]);
 
-        // Mise à jour avec les données reçues
         setCampagne(campagneRes.data);
         setTendanceData(tendanceRes.data || []);
         setZonesData(zonesRes.data || []);
       } catch (err) {
         console.error('Erreur lors du chargement des KPIs :', err);
         setError('Impossible de charger les données. Veuillez réessayer.');
-
-        // ❌ AUCUN MOCK – on réinitialise à zéro pour ne pas afficher de fausses données
         setCampagne({ prevu: 0, collecte: 0, reste: 0, taux: 0 });
         setTendanceData([]);
         setZonesData([]);
@@ -108,9 +117,32 @@ export default function DashboardDirection() {
     };
 
     fetchData();
-    // Le token est une dépendance, mais on veut recharger si l'utilisateur change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // ==================== CHARGEMENT DES PRÉVISIONS ====================
+  useEffect(() => {
+    const fetchPrevisions = async () => {
+      try {
+        // Récupérer la campagne active
+        const campagneRes = await api.get('/campagnes?est_active=true');
+        const campagneId = campagneRes.data[0]?.id;
+        if (campagneId) {
+          // Égrenage
+          const egreRes = await api.get(`/parametres/previsions/egrenage?campagne_id=${campagneId}`);
+          setEgrenagePrevu(egreRes.data.coton_graine_prevu_tonnes || 0);
+          setEgrenageRendement(egreRes.data.rendement_attendu_pourcent || 0);
+          setEgrenageCout(egreRes.data.cout_transformation_estime || 0);
+
+          // Ventes
+          const ventesRes = await api.get(`/parametres/previsions/ventes?campagne_id=${campagneId}`);
+          setVentesPrevisions(ventesRes.data || []);
+        }
+      } catch (err) {
+        console.error('Erreur lors du chargement des prévisions :', err);
+      }
+    };
+    fetchPrevisions();
+  }, []);
 
   // ==================== RENDU ====================
   if (loading) {
@@ -193,6 +225,36 @@ export default function DashboardDirection() {
           </Grid>
         </Grid>
       </Paper>
+
+      {/* ========== SECTION 1.5 : INDICATEURS PRÉVISIONS ÉGRENAGE ET VENTES ========== */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ bgcolor: '#e3f2fd' }}>
+            <CardContent>
+              <Typography variant="body2" color="textSecondary">⚙️ Prévision Égrenage</Typography>
+              <Typography variant="h6">Coton graine: {egrenagePrevu} t</Typography>
+              <Typography variant="body2">Rendement attendu: {egrenageRendement}%</Typography>
+              <Typography variant="body2">Coût estimé: {egrenageCout.toLocaleString()} FCFA</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ bgcolor: '#fff3e0' }}>
+            <CardContent>
+              <Typography variant="body2" color="textSecondary">📦 Prévision Ventes</Typography>
+              {ventesPrevisions.length > 0 ? (
+                ventesPrevisions.map((v) => (
+                  <Typography key={v.produit} variant="body2">
+                    {v.produit}: {v.volume_prevu_tonnes} t à {v.prix_vente_prevu} FCFA/kg
+                  </Typography>
+                ))
+              ) : (
+                <Typography variant="body2" color="textSecondary">Aucune prévision enregistrée</Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* ========== SECTION 2 : GRAPHIQUE ÉVOLUTION ========== */}
       <Paper sx={{ p: 2, mb: 3 }}>

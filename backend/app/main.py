@@ -5,6 +5,8 @@ from app.base import Base
 import app.models
 from app.routers import stats_router
 from app.routers import exportations_router
+from app.routers import campagnes_router
+from app.routers import parametres_router
 from app.routers import (
     auth_router,
     achats_router,
@@ -47,6 +49,9 @@ app.include_router(exportations_router, prefix="/api/exportations", tags=["Expor
 app.include_router(parametres_router, prefix="/api/parametres", tags=["Paramètres"])
 app.include_router(stats_router, prefix="/api/stats", tags=["Statistiques"])
 app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
+app.include_router(parametres_router, prefix="/api/parametres", tags=["Paramètres"])
+#app.include_router(campagnes_router, prefix="/api") 
+app.include_router(campagnes_router, prefix="/api/campagnes", tags=["Campagnes"])
 
 @app.get("/")
 def root():

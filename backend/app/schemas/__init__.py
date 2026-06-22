@@ -7,3 +7,10 @@ from .transformation import TransformationBase, TransformationCreate, Transforma
 from .rapport import RapportBase, RapportCreate, RapportResponse
 from .auth import Token, LoginRequest
 from .usine import UsineBase, UsineCreate, UsineResponse
+from .prevision import (
+    PrevisionAgricultureBase, PrevisionAgricultureCreate, PrevisionAgricultureResponse,
+    PrevisionEgrenageBase, PrevisionEgrenageCreate, PrevisionEgrenageResponse,
+    PrevisionVenteBase, PrevisionVenteCreate, PrevisionVenteResponse
+)
+from .campagne import CampagneBase, CampagneCreate, CampagneResponse, CampagneUpdate
+from .prevision_agriculture import PrevisionAgricultureBase, PrevisionAgricultureCreate, PrevisionAgricultureResponse

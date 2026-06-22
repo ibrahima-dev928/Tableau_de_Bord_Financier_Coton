@@ -6,7 +6,7 @@ from sqlalchemy.sql import func
 from app.base import Base
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Column, String, Numeric, DateTime, Boolean, ForeignKey, CheckConstraint, Date
-
+from sqlalchemy import Column, String, Numeric, DateTime, Boolean, ForeignKey, CheckConstraint, Date, Integer, UniqueConstraint
 
 class User(Base):
     __tablename__ = "utilisateurs"
@@ -133,12 +133,16 @@ class LogAudit(Base):
 class Campagne(Base):
     __tablename__ = "campagnes"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nom = Column(String, nullable=False) 
     libelle = Column(String(100))
     date_debut = Column(Date)
     date_fin = Column(Date)
     objectif_tonnes = Column(Numeric(12,2))
     achats = relationship("Achat", back_populates="campagne")
     est_active = Column(Boolean, default=True)
+    prevision_agriculture = relationship("PrevisionAgriculture", back_populates="campagne", uselist=False, cascade="all, delete-orphan")
+    prevision_egrenage = relationship("PrevisionEgrenage", back_populates="campagne", uselist=False, cascade="all, delete-orphan")
+    previsions_ventes = relationship("PrevisionVente", back_populates="campagne", cascade="all, delete-orphan")
 
 class Rapport(Base):
     __tablename__ = "rapports"
@@ -152,3 +156,43 @@ class Rapport(Base):
     genere_le = Column(DateTime(timezone=True), server_default=func.now())
 
     genere_par = relationship("User", back_populates="rapports_generes")
+
+
+class PrevisionAgriculture(Base):
+    __tablename__ = "previsions_agriculture"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    campagne_id = Column(UUID(as_uuid=True), ForeignKey("campagnes.id"), nullable=False)
+    volume_prevu_tonnes = Column(Numeric(12,2), nullable=False)
+    prix_plancher = Column(Numeric(10,2), nullable=False)
+    seuil_alerte = Column(Numeric(10,2), nullable=False)
+    delai_paiement_jours = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    campagne = relationship("Campagne", back_populates="prevision_agriculture")
+
+class PrevisionEgrenage(Base):
+    __tablename__ = "previsions_egrenage"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    campagne_id = Column(UUID(as_uuid=True), ForeignKey("campagnes.id"), nullable=False)
+    coton_graine_prevu_tonnes = Column(Numeric(12,2), nullable=False)
+    rendement_attendu_pourcent = Column(Numeric(5,2), nullable=False)
+    cout_transformation_estime = Column(Numeric(15,2), nullable=False)  # total en FCFA
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    campagne = relationship("Campagne", back_populates="prevision_egrenage")
+
+# app/models.py (extrait)
+
+class PrevisionVente(Base):
+    __tablename__ = "previsions_ventes"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    campagne_id = Column(UUID(as_uuid=True), ForeignKey("campagnes.id"), nullable=False)
+    produit = Column(String, nullable=False)          # 'fibre', 'graines', 'huile', 'tourteau'
+    #conditionnement = Column(String, nullable=True)   # 'carton', 'sac', 'vrac'
+    volume_prevu_tonnes = Column(Numeric(12, 2), default=0)
+    prix_vente_prevu = Column(Numeric(12, 2), default=0)
+    cout_logistique_estime = Column(Numeric(15, 2), default=0)
+
+    campagne = relationship("Campagne", back_populates="previsions_ventes")

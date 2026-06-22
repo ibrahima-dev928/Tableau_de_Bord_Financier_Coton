@@ -51,15 +51,19 @@ def suivi_campagne(
     campagne = db.query(models.Campagne).filter(models.Campagne.est_active == True).first()
     if not campagne:
         return {"prevu": 0, "collecte": 0, "reste": 0, "taux": 0}
+    
+    # Récupérer la prévision agriculture (volume prévu)
+    prevision_agri = db.query(models.PrevisionAgriculture).filter_by(campagne_id=campagne.id).first()
+    prevu = float(prevision_agri.volume_prevu_tonnes) if prevision_agri else float(campagne.objectif_tonnes or 0)
 
+    # Collecte réelle
     collecte = db.query(func.sum(models.Achat.quantite_kg))\
                  .filter(models.Achat.campagne_id == campagne.id,
                          models.Achat.statut == 'valide',
                          models.Achat.paye == True)\
                  .scalar() or 0
-
-    prevu = float(campagne.objectif_tonnes or 0)
     collecte = float(collecte)
+    
     reste = prevu - collecte
     taux = (collecte / prevu * 100) if prevu else 0
 
@@ -113,7 +117,7 @@ def comparaison_zones(
         for r in results
     ]
 
-# ================== NOUVEAUX ENDPOINTS ==================
+# ================== AGRICULTURE (avec prévisions) ==================
 
 @router.get("/agriculture")
 def get_agriculture(
@@ -121,7 +125,7 @@ def get_agriculture(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Indicateurs pour la section Agriculture / Collecte."""
+    """Indicateurs pour la section Agriculture / Collecte avec prévisions."""
     query = db.query(models.Achat).filter(models.Achat.statut == 'valide')
     query = apply_date_filter(query, date_filter)
     
@@ -133,15 +137,27 @@ def get_agriculture(
     paye = query.filter(models.Achat.paye == True).with_entities(func.sum(models.Achat.montant_total)).scalar() or 0
     reste = total_montant - paye
     taux_collecte = (paye / total_montant * 100) if total_montant else 0
-    
+
+    # Récupération des prévisions pour la campagne active
+    campagne = db.query(models.Campagne).filter(models.Campagne.est_active == True).first()
+    prevision_agri = db.query(models.PrevisionAgriculture).filter_by(campagne_id=campagne.id).first() if campagne else None
+
     return {
         "total_volume": float(total_volume),
         "cout_moyen": float(cout_moyen),
         "nb_producteurs": nb_producteurs,
         "paye": float(paye),
         "reste": float(reste),
-        "taux_collecte": round(taux_collecte, 2)
+        "taux_collecte": round(taux_collecte, 2),
+        "previsions": {
+            "volume_prevu": float(prevision_agri.volume_prevu_tonnes) if prevision_agri else 0,
+            "prix_plancher": float(prevision_agri.prix_plancher) if prevision_agri else 0,
+            "seuil_alerte": float(prevision_agri.seuil_alerte) if prevision_agri else 0,
+            "delai_paiement_jours": prevision_agri.delai_paiement_jours if prevision_agri else 0
+        }
     }
+
+# ================== ÉGRENAGE (avec prévisions) ==================
 
 @router.get("/egrenage")
 def get_egrenage(
@@ -149,7 +165,7 @@ def get_egrenage(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Indicateurs pour la section Égrenage (Transformations)."""
+    """Indicateurs pour la section Égrenage avec prévisions."""
     query = db.query(models.Transformation)
     
     if date_filter:
@@ -175,14 +191,25 @@ def get_egrenage(
     total_graines = query.with_entities(func.sum(models.Transformation.qte_graine_kg)).scalar() or 0
     cout_transfo = query.with_entities(func.sum(models.Transformation.cout_transformation)).scalar() or 0
     rendement = (total_fibre / total_coton_graine * 100) if total_coton_graine else 0
-    
+
+    # Récupération des prévisions
+    campagne = db.query(models.Campagne).filter(models.Campagne.est_active == True).first()
+    prevision_egre = db.query(models.PrevisionEgrenage).filter_by(campagne_id=campagne.id).first() if campagne else None
+
     return {
         "total_coton_graine": float(total_coton_graine),
         "total_fibre": float(total_fibre),
         "total_graines": float(total_graines),
         "cout_transformation": float(cout_transfo),
-        "rendement": round(rendement, 2)
+        "rendement": round(rendement, 2),
+        "previsions": {
+            "coton_graine_prevu": float(prevision_egre.coton_graine_prevu_tonnes) if prevision_egre else 0,
+            "rendement_attendu": float(prevision_egre.rendement_attendu_pourcent) if prevision_egre else 0,
+            "cout_transformation_estime": float(prevision_egre.cout_transformation_estime) if prevision_egre else 0
+        }
     }
+
+# ================== VENTES (avec prévisions) ==================
 
 @router.get("/ventes")
 def get_ventes(
@@ -190,7 +217,7 @@ def get_ventes(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Indicateurs pour la section Ventes."""
+    """Indicateurs pour la section Ventes avec prévisions."""
     query = db.query(models.Vente)
     
     if date_filter:
@@ -214,9 +241,40 @@ def get_ventes(
     total_volume = query.with_entities(func.sum(models.Vente.quantite_kg)).scalar() or 0
     total_revenu = query.with_entities(func.sum(models.Vente.montant_total)).scalar() or 0
     total_logistique = query.with_entities(func.sum(models.Vente.couts_logistiques)).scalar() or 0
-    
+
+    # Récupération des prévisions pour la campagne active
+    campagne = db.query(models.Campagne).filter(models.Campagne.est_active == True).first()
+    previsions_ventes = db.query(models.PrevisionVente).filter_by(campagne_id=campagne.id).all() if campagne else []
+
+    # On regroupe par produit pour avoir une vue synthétique
+    previsions_dict = {}
+    for pv in previsions_ventes:
+        previsions_dict[pv.produit] = {
+            "volume_prevu": float(pv.volume_prevu_tonnes),
+            "prix_vente_prevu": float(pv.prix_vente_prevu),
+            "cout_logistique_estime": float(pv.cout_logistique_estime)
+        }
+
+    # Produits standards
+    produits = ["Fibre", "Graines", "Huile", "Tourteau"]
+    previsions_list = []
+    for p in produits:
+        if p in previsions_dict:
+            previsions_list.append({
+                "produit": p,
+                **previsions_dict[p]
+            })
+        else:
+            previsions_list.append({
+                "produit": p,
+                "volume_prevu": 0,
+                "prix_vente_prevu": 0,
+                "cout_logistique_estime": 0
+            })
+    print(f"Total volume: {total_volume}")
     return {
         "total_volume": float(total_volume),
         "total_revenu": float(total_revenu),
-        "total_logistique": float(total_logistique)
+        "total_logistique": float(total_logistique),
+        "previsions": previsions_list
     }

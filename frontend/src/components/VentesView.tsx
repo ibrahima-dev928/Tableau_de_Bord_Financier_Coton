@@ -1,12 +1,24 @@
 // src/components/VentesView.tsx
 import { useEffect, useState } from 'react';
-import { Grid, Card, CardContent, Typography, CircularProgress, Box } from '@mui/material';
+import {
+  Grid, Card, CardContent, Typography, CircularProgress,
+  Box, Alert, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Paper
+} from '@mui/material';
 import api from '../api/client';
+
+interface PrevisionVente {
+  produit: string;
+  volume_prevu_tonnes: number;
+  prix_vente_prevu: number;
+  cout_logistique_estime: number;
+}
 
 interface VentesData {
   total_volume: number;
   total_revenu: number;
   total_logistique: number;
+  previsions?: PrevisionVente[];
 }
 
 export default function VentesView({ dateFilter }: { dateFilter: string }) {
@@ -21,7 +33,7 @@ export default function VentesView({ dateFilter }: { dateFilter: string }) {
         const res = await api.get(`/stats/ventes?date=${dateFilter}`);
         setData(res.data);
       } catch (err) {
-        setError('Erreur de chargement');
+        setError('Erreur de chargement des données');
         console.error(err);
       } finally {
         setLoading(false);
@@ -30,36 +42,86 @@ export default function VentesView({ dateFilter }: { dateFilter: string }) {
     fetchData();
   }, [dateFilter]);
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
-  if (error) return <Typography color="error">{error}</Typography>;
-  if (!data) return <Typography>Aucune donnée</Typography>;
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mt: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
+
+  if (!data) {
+    return <Typography sx={{ mt: 2 }}>Aucune donnée disponible</Typography>;
+  }
 
   return (
-    <Grid container spacing={3} sx={{ mt: 1 }}>
-      <Grid item xs={12} md={4}>
-        <Card>
-          <CardContent>
-            <Typography variant="body2" color="textSecondary">Volume total vendu</Typography>
-            <Typography variant="h5">{data.total_volume.toFixed(1)} kg</Typography>
-          </CardContent>
-        </Card>
+    <Box>
+      {/* ===== INDICATEURS RÉELS ===== */}
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" color="textSecondary">Volume total vendu</Typography>
+              <Typography variant="h5">{data.total_volume.toFixed(1)} kg</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ bgcolor: 'success.light', color: 'success.contrastText' }}>
+            <CardContent>
+              <Typography variant="body2">💰 Revenu total</Typography>
+              <Typography variant="h5">{data.total_revenu.toLocaleString()} FCFA</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+            <CardContent>
+              <Typography variant="body2">🚚 Coûts logistiques</Typography>
+              <Typography variant="h5">{data.total_logistique.toLocaleString()} FCFA</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
-      <Grid item xs={12} md={4}>
-        <Card sx={{ bgcolor: 'success.light', color: 'success.contrastText' }}>
-          <CardContent>
-            <Typography variant="body2">💰 Revenu total</Typography>
-            <Typography variant="h5">{data.total_revenu.toLocaleString()} FCFA</Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={4}>
-        <Card sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
-          <CardContent>
-            <Typography variant="body2">🚚 Coûts logistiques</Typography>
-            <Typography variant="h5">{data.total_logistique.toLocaleString()} FCFA</Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-    </Grid>
+
+      {/* ===== PRÉVISIONS PAR PRODUIT ===== */}
+      {data.previsions && data.previsions.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+            📦 Prévisions par produit
+          </Typography>
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Produit</TableCell>
+                  <TableCell align="right">Volume (t)</TableCell>
+                  <TableCell align="right">Prix (FCFA/kg)</TableCell>
+                  <TableCell align="right">Logistique (FCFA)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.previsions.map((p) => (
+                  <TableRow key={p.produit}>
+                    <TableCell>{p.produit}</TableCell>
+                    <TableCell align="right">{p.volume_prevu_tonnes}</TableCell>
+                    <TableCell align="right">{p.prix_vente_prevu}</TableCell>
+                    <TableCell align="right">{p.cout_logistique_estime}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+    </Box>
   );
 }
