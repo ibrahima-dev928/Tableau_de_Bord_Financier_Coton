@@ -12,14 +12,14 @@ interface EgrenageData {
   total_graines: number;
   cout_transformation: number;
   rendement: number;
-  previsions?: {
-    coton_graine_prevu_tonnes: number;
-    rendement_attendu_pourcent: number;
-    cout_transformation_estime: number;
-  };
 }
 
-export default function EgrenageView({ dateFilter }: { dateFilter: string }) {
+interface EgrenageViewProps {
+  dateFilter: string;
+  campagneId: string;
+}
+
+export default function EgrenageView({ dateFilter, campagneId }: EgrenageViewProps) {
   const [data, setData] = useState<EgrenageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -28,7 +28,8 @@ export default function EgrenageView({ dateFilter }: { dateFilter: string }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await api.get(`/stats/egrenage?date=${dateFilter}`);
+        const url = `/stats/egrenage?date_filter=${dateFilter}&campagne_id=${campagneId}`;
+        const res = await api.get(url);
         setData(res.data);
       } catch (err) {
         setError('Erreur de chargement des données');
@@ -38,7 +39,7 @@ export default function EgrenageView({ dateFilter }: { dateFilter: string }) {
       }
     };
     fetchData();
-  }, [dateFilter]);
+  }, [dateFilter, campagneId]);
 
   if (loading) {
     return (
@@ -61,91 +62,47 @@ export default function EgrenageView({ dateFilter }: { dateFilter: string }) {
   }
 
   return (
-    <Box>
-      {/* ===== INDICATEURS RÉELS ===== */}
-      <Grid container spacing={3} sx={{ mt: 1 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="body2" color="textSecondary">Coton graine entrant</Typography>
-              <Typography variant="h5">{data.total_coton_graine.toFixed(1)} kg</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="body2" color="textSecondary">Fibre produite</Typography>
-              <Typography variant="h5">{data.total_fibre.toFixed(1)} kg</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="body2" color="textSecondary">Graines produites</Typography>
-              <Typography variant="h5">{data.total_graines.toFixed(1)} kg</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="body2" color="textSecondary">Rendement égrenage</Typography>
-              <Typography variant="h5">{data.rendement.toFixed(1)}%</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="body2" color="textSecondary">Coût total de transformation</Typography>
-              <Typography variant="h5">{data.cout_transformation.toLocaleString()} FCFA</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+    <Grid container spacing={3} sx={{ mt: 1 }}>
+      <Grid item xs={12} sm={6} md={3}>
+        <Card>
+          <CardContent>
+            <Typography variant="body2" color="textSecondary">Coton graine entrant</Typography>
+            <Typography variant="h5">{data.total_coton_graine.toFixed(1)} kg</Typography>
+          </CardContent>
+        </Card>
       </Grid>
-
-      {/* ===== PRÉVISIONS DE LA CAMPAGNE ===== */}
-      {data.previsions && (
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-            📋 Prévisions de la campagne
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={4}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="body2" color="textSecondary">Coton graine prévu</Typography>
-                  <Typography variant="h6">
-                    {data.previsions.coton_graine_prevu_tonnes} t
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="body2" color="textSecondary">Rendement attendu</Typography>
-                  <Typography variant="h6">
-                    {data.previsions.rendement_attendu_pourcent}%
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="body2" color="textSecondary">Coût transformation estimé</Typography>
-                  <Typography variant="h6">
-                    {data.previsions.cout_transformation_estime.toLocaleString()} FCFA
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
-      )}
-    </Box>
+      <Grid item xs={12} sm={6} md={3}>
+        <Card>
+          <CardContent>
+            <Typography variant="body2" color="textSecondary">Fibre produite</Typography>
+            <Typography variant="h5">{data.total_fibre.toFixed(1)} kg</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid item xs={12} sm={6} md={3}>
+        <Card>
+          <CardContent>
+            <Typography variant="body2" color="textSecondary">Graines produites</Typography>
+            <Typography variant="h5">{data.total_graines.toFixed(1)} kg</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid item xs={12} sm={6} md={3}>
+        <Card>
+          <CardContent>
+            <Typography variant="body2" color="textSecondary">Rendement égrenage</Typography>
+            <Typography variant="h5">{data.rendement.toFixed(1)}%</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid item xs={12}>
+        <Card>
+          <CardContent>
+            <Typography variant="body2" color="textSecondary">Coût total de transformation</Typography>
+            <Typography variant="h5">{data.cout_transformation.toLocaleString()} FCFA</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
   );
 }

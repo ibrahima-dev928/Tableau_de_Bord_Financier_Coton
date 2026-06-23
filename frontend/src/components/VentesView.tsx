@@ -21,7 +21,12 @@ interface VentesData {
   previsions?: PrevisionVente[];
 }
 
-export default function VentesView({ dateFilter }: { dateFilter: string }) {
+interface VentesViewProps {
+  dateFilter: string;
+  campagneId: string;
+}
+
+export default function VentesView({ dateFilter, campagneId }: VentesViewProps) {
   const [data, setData] = useState<VentesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,7 +35,8 @@ export default function VentesView({ dateFilter }: { dateFilter: string }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await api.get(`/stats/ventes?date=${dateFilter}`);
+        const url = `/stats/ventes?date_filter=${dateFilter}&campagne_id=${campagneId}`;
+        const res = await api.get(url);
         setData(res.data);
       } catch (err) {
         setError('Erreur de chargement des données');
@@ -40,7 +46,7 @@ export default function VentesView({ dateFilter }: { dateFilter: string }) {
       }
     };
     fetchData();
-  }, [dateFilter]);
+  }, [dateFilter, campagneId]);
 
   if (loading) {
     return (
@@ -64,7 +70,6 @@ export default function VentesView({ dateFilter }: { dateFilter: string }) {
 
   return (
     <Box>
-      {/* ===== INDICATEURS RÉELS ===== */}
       <Grid container spacing={3} sx={{ mt: 1 }}>
         <Grid item xs={12} md={4}>
           <Card>
@@ -92,7 +97,6 @@ export default function VentesView({ dateFilter }: { dateFilter: string }) {
         </Grid>
       </Grid>
 
-      {/* ===== PRÉVISIONS PAR PRODUIT ===== */}
       {data.previsions && data.previsions.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="subtitle1" fontWeight="bold" gutterBottom>

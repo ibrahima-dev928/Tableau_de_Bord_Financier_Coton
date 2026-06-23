@@ -1,10 +1,17 @@
 // src/components/AgricultureView.tsx
 import { useEffect, useState } from 'react';
 import {
-  Grid, Card, CardContent, Typography, LinearProgress,
-  CircularProgress, Box, Alert
+  Grid, Card, CardContent, Typography, CircularProgress,
+  Box, Alert, LinearProgress
 } from '@mui/material';
 import api from '../api/client';
+
+interface PrevisionAgriculture {
+  volume_prevu: number;
+  prix_plancher: number;
+  seuil_alerte: number;
+  delai_paiement_jours: number;
+}
 
 interface AgricultureData {
   total_volume: number;
@@ -13,15 +20,15 @@ interface AgricultureData {
   paye: number;
   reste: number;
   taux_collecte: number;
-  previsions?: {
-    volume_prevu: number;
-    prix_plancher: number;
-    seuil_alerte: number;
-    delai_paiement_jours: number;
-  };
+  previsions?: PrevisionAgriculture;
 }
 
-export default function AgricultureView({ dateFilter }: { dateFilter: string }) {
+interface AgricultureViewProps {
+  dateFilter: string;
+  campagneId: string; // <-- ajout de la prop
+}
+
+export default function AgricultureView({ dateFilter, campagneId }: AgricultureViewProps) {
   const [data, setData] = useState<AgricultureData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,7 +37,8 @@ export default function AgricultureView({ dateFilter }: { dateFilter: string }) 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await api.get(`/stats/agriculture?date=${dateFilter}`);
+        const url = `/stats/agriculture?date_filter=${dateFilter}&campagne_id=${campagneId}`;
+        const res = await api.get(url);
         setData(res.data);
       } catch (err) {
         setError('Erreur de chargement des données');
@@ -40,7 +48,7 @@ export default function AgricultureView({ dateFilter }: { dateFilter: string }) 
       }
     };
     fetchData();
-  }, [dateFilter]);
+  }, [dateFilter, campagneId]);
 
   if (loading) {
     return (
@@ -64,7 +72,6 @@ export default function AgricultureView({ dateFilter }: { dateFilter: string }) 
 
   return (
     <Box>
-      {/* ===== INDICATEURS RÉELS ===== */}
       <Grid container spacing={3} sx={{ mt: 1 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
@@ -95,11 +102,7 @@ export default function AgricultureView({ dateFilter }: { dateFilter: string }) 
             <CardContent>
               <Typography variant="body2" color="textSecondary">Taux de paiement</Typography>
               <Typography variant="h5">{data.taux_collecte.toFixed(1)}%</Typography>
-              <LinearProgress
-                variant="determinate"
-                value={data.taux_collecte}
-                sx={{ mt: 1 }}
-              />
+              <LinearProgress variant="determinate" value={data.taux_collecte} sx={{ mt: 1 }} />
             </CardContent>
           </Card>
         </Grid>
@@ -121,9 +124,8 @@ export default function AgricultureView({ dateFilter }: { dateFilter: string }) 
         </Grid>
       </Grid>
 
-      {/* ===== PRÉVISIONS DE LA CAMPAGNE ===== */}
       {data.previsions && (
-        <Box sx={{ mt: 4 }}>
+        <Box sx={{ mt: 3 }}>
           <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
             📋 Prévisions de la campagne
           </Typography>

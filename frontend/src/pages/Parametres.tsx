@@ -1,3 +1,4 @@
+// src/pages/Parametres.tsx
 import { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, TextField, Button, Grid, MenuItem,
@@ -12,9 +13,9 @@ import { formatError } from '../utils/formatError';
 // ========== INTERFACES ==========
 interface Campagne {
   id: string;
-  libelle: string;        // nom de la campagne
+  libelle: string;
   est_active: boolean;
-  date_debut?: string;    // au format YYYY-MM-DD
+  date_debut?: string;
   date_fin?: string;
 }
 
@@ -80,22 +81,24 @@ export default function Parametres() {
     }))
   );
 
-  // ========== CHARGEMENT DES CAMPAGNES ==========
-  useEffect(() => {
-    const fetchCampagnes = async () => {
-      try {
-        const res = await api.get('/campagnes');
-        setCampagnes(res.data);
-        const active = res.data.find((c: Campagne) => c.est_active);
-        if (active) {
-          setSelectedCampagne(active.id);
-        } else if (res.data.length > 0) {
-          setSelectedCampagne(res.data[0].id);
-        }
-      } catch (err) {
-        console.error('Erreur chargement campagnes', err);
+  // ========== CHARGEMENT DES CAMPAGNES (FONCTION EXTRACTED) ==========
+  const fetchCampagnes = async () => {
+    try {
+      const res = await api.get('/campagnes');
+      setCampagnes(res.data);
+      const active = res.data.find((c: Campagne) => c.est_active);
+      if (active) {
+        setSelectedCampagne(active.id);
+      } else if (res.data.length > 0) {
+        setSelectedCampagne(res.data[0].id);
       }
-    };
+    } catch (err) {
+      console.error('Erreur chargement campagnes', err);
+    }
+  };
+
+  // ========== CHARGEMENT INITIAL ==========
+  useEffect(() => {
     fetchCampagnes();
   }, []);
 
@@ -103,7 +106,6 @@ export default function Parametres() {
   useEffect(() => {
     if (selectedCampagne) {
       loadPrevisions(selectedCampagne);
-      // Mettre à jour les champs de la campagne
       const campagne = campagnes.find(c => c.id === selectedCampagne);
       if (campagne) {
         setCampagneLibelle(campagne.libelle || '');
@@ -117,7 +119,6 @@ export default function Parametres() {
     setLoading(true);
     setError('');
     try {
-      // Agriculture
       const agriRes = await api.get(`/parametres/previsions/agriculture?campagne_id=${campagneId}`);
       if (agriRes.data && agriRes.data.id) {
         setAgriculture({ ...agriRes.data, campagne_id: campagneId });
@@ -131,7 +132,6 @@ export default function Parametres() {
         });
       }
 
-      // Égrenage
       const egreRes = await api.get(`/parametres/previsions/egrenage?campagne_id=${campagneId}`);
       if (egreRes.data && egreRes.data.id) {
         setEgrenage({ ...egreRes.data, campagne_id: campagneId });
@@ -144,7 +144,6 @@ export default function Parametres() {
         });
       }
 
-      // Ventes
       const ventesRes = await api.get(`/parametres/previsions/ventes?campagne_id=${campagneId}`);
       if (ventesRes.data && ventesRes.data.length > 0) {
         const newVentes = PRODUITS_VENTE.map(p => {
@@ -179,15 +178,15 @@ export default function Parametres() {
     setError('');
     setSuccess('');
     try {
-      // Sauvegarder les informations de la campagne (libellé, dates)
+      // 1. Sauvegarder les informations de la campagne
       await api.put(`/campagnes/${selectedCampagne}`, {
         libelle: campagneLibelle,
         date_debut: campagneDateDebut || null,
         date_fin: campagneDateFin || null,
-        est_active: true // ou laisser l'état actuel
+        est_active: true
       });
 
-      // Agriculture
+      // 2. Sauvegarder les prévisions
       await api.put('/parametres/previsions/agriculture', {
         campagne_id: selectedCampagne,
         volume_prevu_tonnes: agriculture.volume_prevu_tonnes,
@@ -196,7 +195,6 @@ export default function Parametres() {
         delai_paiement_jours: agriculture.delai_paiement_jours
       });
 
-      // Égrenage
       await api.put('/parametres/previsions/egrenage', {
         campagne_id: selectedCampagne,
         coton_graine_prevu_tonnes: egrenage.coton_graine_prevu_tonnes,
@@ -204,7 +202,6 @@ export default function Parametres() {
         cout_transformation_estime: egrenage.cout_transformation_estime
       });
 
-      // Ventes
       const ventesPayload = ventes.map(v => ({
         campagne_id: selectedCampagne,
         produit: v.produit,
@@ -213,6 +210,9 @@ export default function Parametres() {
         cout_logistique_estime: v.cout_logistique_estime
       }));
       await api.put('/parametres/previsions/ventes', ventesPayload);
+
+      // 3. RECHARGER LA LISTE DES CAMPAGNES (AJOUT)
+      await fetchCampagnes();
 
       setSuccess('✅ Toutes les prévisions ont été enregistrées avec succès !');
       setTimeout(() => setSuccess(''), 4000);
@@ -259,7 +259,7 @@ export default function Parametres() {
           </Select>
         </FormControl>
 
-        {/* ========== NOUVEAU : CHAMPS DE LA CAMPAGNE ========== */}
+        {/* ========== CHAMPS DE LA CAMPAGNE ========== */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={4}>
             <TextField

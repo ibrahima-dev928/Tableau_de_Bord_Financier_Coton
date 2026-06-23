@@ -88,36 +88,42 @@ class Achat(Base):
     producteur = relationship("Producteur", back_populates="achats")
     zone = relationship("Zone", back_populates="achats")
     saisi_par = relationship("User", foreign_keys=[saisi_par_id], back_populates="achats")
-    campagne = relationship("Campagne", back_populates="achats")  # si vous créez la relation
+    campagne = relationship("Campagne")   # sans back_populates
+    #campagne = relationship("Campagne", back_populates="achats")  # si vous créez la relation
 
 class Transformation(Base):
     __tablename__ = "transformations"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     usine_id = Column(UUID(as_uuid=True), ForeignKey("usines.id"), nullable=False)
-    qte_coton_graine_kg = Column(Numeric(12, 2), nullable=False)
-    qte_fibre_kg = Column(Numeric(12, 2), nullable=False)
-    qte_graine_kg = Column(Numeric(12, 2), nullable=False)
-    cout_transformation = Column(Numeric(15, 2), nullable=False)
+    qte_coton_graine_kg = Column(Numeric(12,2), nullable=False)
+    qte_fibre_kg = Column(Numeric(12,2), nullable=False)
+    qte_graine_kg = Column(Numeric(12,2), nullable=False)
+    cout_transformation = Column(Numeric(15,2), nullable=False)
     saisi_par_id = Column(UUID(as_uuid=True), ForeignKey("utilisateurs.id"), nullable=False)
+    campagne_id = Column(UUID(as_uuid=True), ForeignKey("campagnes.id"), nullable=True)  # <-- AJOUT
 
-    usine = relationship("Usine", back_populates="transformations")
-    saisi_par = relationship("User", back_populates="transformations")
-
+    # Relations (sans back_populates pour éviter les conflits)
+    usine = relationship("Usine", foreign_keys=[usine_id])
+    saisi_par = relationship("User", foreign_keys=[saisi_par_id])
+    campagne = relationship("Campagne")  # simple
 
 class Vente(Base):
     __tablename__ = "ventes"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     type_vente = Column(String, nullable=False)
-    quantite_kg = Column(Numeric(12, 2), nullable=False)
-    prix_unitaire = Column(Numeric(12, 2), nullable=False)
+    quantite_kg = Column(Numeric(12,2), nullable=False)
+    prix_unitaire = Column(Numeric(12,2), nullable=False)
     devise = Column(String, default="FCFA")
-    montant_total = Column(Numeric(15, 2), nullable=False)
-    couts_logistiques = Column(Numeric(15, 2), default=0)
+    montant_total = Column(Numeric(15,2), nullable=False)
+    couts_logistiques = Column(Numeric(15,2), default=0)
     saisi_par_id = Column(UUID(as_uuid=True), ForeignKey("utilisateurs.id"), nullable=False)
+    campagne_id = Column(UUID(as_uuid=True), ForeignKey("campagnes.id"), nullable=True)  # <-- AJOUT
 
-    saisi_par = relationship("User", back_populates="ventes")
+    saisi_par = relationship("User", foreign_keys=[saisi_par_id])
+    campagne = relationship("Campagne")  # <-- sans back_populates
+
 
 class LogAudit(Base):
     __tablename__ = "logs_audit"
@@ -133,16 +139,11 @@ class LogAudit(Base):
 class Campagne(Base):
     __tablename__ = "campagnes"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    nom = Column(String, nullable=False) 
     libelle = Column(String(100))
     date_debut = Column(Date)
     date_fin = Column(Date)
     objectif_tonnes = Column(Numeric(12,2))
-    achats = relationship("Achat", back_populates="campagne")
     est_active = Column(Boolean, default=True)
-    prevision_agriculture = relationship("PrevisionAgriculture", back_populates="campagne", uselist=False, cascade="all, delete-orphan")
-    prevision_egrenage = relationship("PrevisionEgrenage", back_populates="campagne", uselist=False, cascade="all, delete-orphan")
-    previsions_ventes = relationship("PrevisionVente", back_populates="campagne", cascade="all, delete-orphan")
 
 class Rapport(Base):
     __tablename__ = "rapports"
@@ -169,7 +170,7 @@ class PrevisionAgriculture(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    campagne = relationship("Campagne", back_populates="prevision_agriculture")
+    campagne = relationship("Campagne")   # <-- sans back_populates
 
 class PrevisionEgrenage(Base):
     __tablename__ = "previsions_egrenage"
@@ -177,22 +178,22 @@ class PrevisionEgrenage(Base):
     campagne_id = Column(UUID(as_uuid=True), ForeignKey("campagnes.id"), nullable=False)
     coton_graine_prevu_tonnes = Column(Numeric(12,2), nullable=False)
     rendement_attendu_pourcent = Column(Numeric(5,2), nullable=False)
-    cout_transformation_estime = Column(Numeric(15,2), nullable=False)  # total en FCFA
+    cout_transformation_estime = Column(Numeric(15,2), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    campagne = relationship("Campagne", back_populates="prevision_egrenage")
-
+    campagne = relationship("Campagne")   # <-- sans back_populates
 # app/models.py (extrait)
 
 class PrevisionVente(Base):
     __tablename__ = "previsions_ventes"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     campagne_id = Column(UUID(as_uuid=True), ForeignKey("campagnes.id"), nullable=False)
-    produit = Column(String, nullable=False)          # 'fibre', 'graines', 'huile', 'tourteau'
-    #conditionnement = Column(String, nullable=True)   # 'carton', 'sac', 'vrac'
-    volume_prevu_tonnes = Column(Numeric(12, 2), default=0)
-    prix_vente_prevu = Column(Numeric(12, 2), default=0)
-    cout_logistique_estime = Column(Numeric(15, 2), default=0)
+    produit = Column(String, nullable=False)
+    volume_prevu_tonnes = Column(Numeric(12,2), default=0)
+    prix_vente_prevu = Column(Numeric(12,2), default=0)
+    cout_logistique_estime = Column(Numeric(15,2), default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    campagne = relationship("Campagne", back_populates="previsions_ventes")
+    campagne = relationship("Campagne")   # <-- sans back_populates
