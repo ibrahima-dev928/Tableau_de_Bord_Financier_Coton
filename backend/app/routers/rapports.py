@@ -7,6 +7,7 @@ from app.utils.security import get_current_user
 from app import models
 from datetime import datetime
 import os
+import traceback
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -21,6 +22,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORTS_DIR = os.path.join(BASE_DIR, "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
+# ==================== GÉNÉRATION PDF ====================
 def generate_pdf_report(data, title="Rapport"):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -47,19 +49,30 @@ def generate_pdf_report(data, title="Rapport"):
     buffer.seek(0)
     return buffer.getvalue()
 
+# ==================== GÉNÉRATION EXCEL (AVEC LOGS) ====================
 def generate_excel_report(data):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    if data:
-        headers = list(data[0].keys())
-        ws.append(headers)
-        for row in data:
-            ws.append([row.get(h, '') for h in headers])
-    buffer = BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    return buffer.getvalue()
+    print("📊 Génération Excel avec données :", data)  # debug
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        if data:
+            headers = list(data[0].keys())
+            ws.append(headers)
+            for row in data:
+                # Convertir chaque valeur en chaîne pour éviter les erreurs de type
+                ws.append([str(row.get(h, '')) for h in headers])
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        content = buffer.getvalue()
+        print(f"✅ Contenu Excel généré, taille : {len(content)} octets")
+        return content
+    except Exception as e:
+        print(f"❌ Erreur dans generate_excel_report : {e}")
+        traceback.print_exc()
+        raise
 
+# ==================== ENDPOINT DE GÉNÉRATION ====================
 @router.post("/")
 def generate_report(
     report: RapportCreate,
@@ -67,6 +80,7 @@ def generate_report(
     current_user = Depends(get_current_user)
 ):
     try:
+        # Récupération des achats
         achats = db.query(models.Achat).filter(
             models.Achat.date_achat.between(report.periode_debut, report.periode_fin)
         ).all()
@@ -92,20 +106,43 @@ def generate_report(
                 "Montant (FCFA)": 0
             })
     except Exception as e:
+        print(f"❌ Erreur lors de la collecte des données : {e}")
+        traceback.print_exc()
         data = [{"Erreur": str(e)}]
-    
+
+    # Génération du fichier selon le format
     if report.format.upper() == "PDF":
-        content = generate_pdf_report(data, title=f"Rapport {report.type}")
-        extension = ".pdf"
+        try:
+            content = generate_pdf_report(data, title=f"Rapport {report.type}")
+            extension = ".pdf"
+            print("✅ Rapport PDF généré avec succès.")
+        except Exception as e:
+            print(f"❌ Erreur PDF : {e}")
+            traceback.print_exc()
+            raise HTTPException(500, f"Erreur lors de la génération PDF : {str(e)}")
     else:
-        content = generate_excel_report(data)
-        extension = ".xlsx"
-    
+        try:
+            print("➡️ Début de la génération Excel...")
+            content = generate_excel_report(data)
+            extension = ".xlsx"
+            print("✅ Rapport Excel généré avec succès.")
+        except Exception as e:
+            print(f"❌ Erreur Excel : {e}")
+            traceback.print_exc()
+            raise HTTPException(500, f"Erreur lors de la génération Excel : {str(e)}")
+
+    # Sauvegarde du fichier
     filename = f"rapport_{datetime.now().strftime('%Y%m%d%H%M%S')}{extension}"
     filepath = os.path.join(REPORTS_DIR, filename)
-    with open(filepath, "wb") as f:
-        f.write(content)
-    
+    try:
+        with open(filepath, "wb") as f:
+            f.write(content)
+        print(f"✅ Fichier sauvegardé : {filepath}")
+    except Exception as e:
+        print(f"❌ Erreur lors de la sauvegarde du fichier : {e}")
+        raise HTTPException(500, f"Erreur lors de la sauvegarde : {str(e)}")
+
+    # Enregistrement en base
     db_rapport = models.Rapport(
         type=report.type,
         periode_debut=report.periode_debut,
@@ -119,6 +156,7 @@ def generate_report(
     db.refresh(db_rapport)
     return {"id": str(db_rapport.id), "message": "Rapport généré avec succès"}
 
+# ==================== LISTE DES RAPPORTS ====================
 @router.get("/")
 def get_rapports(
     db: Session = Depends(get_db),
@@ -126,6 +164,7 @@ def get_rapports(
 ):
     return db.query(models.Rapport).all()
 
+# ==================== TÉLÉCHARGEMENT ====================
 @router.get("/download/{rapport_id}")
 def download_report(
     rapport_id: str,
@@ -144,6 +183,7 @@ def download_report(
         media_type=media_type
     )
 
+# ==================== PLANIFICATION ====================
 @router.post("/schedule")
 def schedule_report(
     report: RapportCreate,

@@ -65,7 +65,6 @@ export default function Rapports() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validation : tous les champs requis
     if (!formData.type || !formData.periode_debut || !formData.periode_fin || !formData.format) {
       setError('Veuillez remplir tous les champs');
       setTimeout(() => setError(''), 3000);
@@ -76,7 +75,6 @@ export default function Rapports() {
       await api.post('/rapports', formData);
       setSuccess('Rapport généré avec succès');
       fetchData();
-      // Réinitialiser
       setFormData({ type: '', periode_debut: '', periode_fin: '', format: '' });
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -104,17 +102,33 @@ export default function Rapports() {
     }
   };
 
-  const handleDownload = async (id: string) => {
+  // ✅ handleDownload avec format pour l'extension
+  const handleDownload = async (id: string, format: string) => {
     try {
-      const response = await api.get(`/rapports/download/${id}`, { responseType: 'blob' });
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const response = await api.get(`/rapports/download/${id}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data]);
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `rapport_${id}.pdf`;
+
+      // Déterminer l'extension en fonction du format
+      const extension = format.toLowerCase() === 'pdf' ? 'pdf' : 'xlsx';
+      let filename = `rapport_${id}.${extension}`;
+
+      // Essayer de récupérer le nom du fichier depuis le header Content-Disposition
+      const contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) filename = match[1];
+      }
+
+      link.download = filename;
       link.click();
       URL.revokeObjectURL(link.href);
     } catch (err) {
-      setError('Erreur lors du téléchargement');
+      console.error('Erreur lors du téléchargement :', err);
+      setError('Erreur lors du téléchargement du rapport');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -229,7 +243,8 @@ export default function Rapports() {
                       <TableCell><Chip label={r.format} size="small" color="primary" /></TableCell>
                       <TableCell>{new Date(r.genere_le).toLocaleString()}</TableCell>
                       <TableCell align="center">
-                        <IconButton onClick={() => handleDownload(r.id)} color="primary">
+                        {/* ✅ Passage de r.format à la fonction */}
+                        <IconButton onClick={() => handleDownload(r.id, r.format)} color="primary">
                           <Download />
                         </IconButton>
                       </TableCell>

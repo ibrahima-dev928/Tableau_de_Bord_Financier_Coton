@@ -13,6 +13,7 @@ class ProducteurCreate(ProducteurBase):
 
 class ProducteurResponse(ProducteurBase):
     id: UUID
+    zone_nom: Optional[str] = None
 
     class Config:
         from_attributes = True
