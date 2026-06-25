@@ -1,4 +1,3 @@
-# app/routers/usines.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -19,7 +18,17 @@ def create_usine(
     db.add(db_usine)
     db.commit()
     db.refresh(db_usine)
-    return db_usine
+    # Récupérer le nom de la zone pour la réponse
+    zone = db.query(models.Zone).filter(models.Zone.id == db_usine.zone_id).first()
+    zone_nom = zone.nom if zone else None
+    # Construire la réponse
+    return {
+        "id": db_usine.id,
+        "nom": db_usine.nom,
+        "zone_id": db_usine.zone_id,
+        "capacite_kg_jour": db_usine.capacite_kg_jour,
+        "zone_nom": zone_nom
+    }
 
 @router.get("/", response_model=List[schemas.UsineResponse])
 def get_usines(
@@ -28,8 +37,20 @@ def get_usines(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    usines = db.query(models.Usine).offset(skip).limit(limit).all()
-    return usines
+    # Jointure avec la table zones pour récupérer le nom
+    usines = db.query(models.Usine).join(models.Zone, models.Usine.zone_id == models.Zone.id).offset(skip).limit(limit).all()
+    result = []
+    for u in usines:
+        # Pour chaque usine, on récupère le nom de la zone (via la relation ou l'objet joint)
+        zone_nom = u.zone.nom if u.zone else None
+        result.append({
+            "id": u.id,
+            "nom": u.nom,
+            "zone_id": u.zone_id,
+            "capacite_kg_jour": u.capacite_kg_jour,
+            "zone_nom": zone_nom
+        })
+    return result
 
 @router.get("/{usine_id}", response_model=schemas.UsineResponse)
 def get_usine(
@@ -40,7 +61,15 @@ def get_usine(
     usine = db.query(models.Usine).filter(models.Usine.id == usine_id).first()
     if not usine:
         raise HTTPException(404, "Usine non trouvée")
-    return usine
+    zone = db.query(models.Zone).filter(models.Zone.id == usine.zone_id).first()
+    zone_nom = zone.nom if zone else None
+    return {
+        "id": usine.id,
+        "nom": usine.nom,
+        "zone_id": usine.zone_id,
+        "capacite_kg_jour": usine.capacite_kg_jour,
+        "zone_nom": zone_nom
+    }
 
 @router.put("/{usine_id}", response_model=schemas.UsineResponse)
 def update_usine(
@@ -56,7 +85,15 @@ def update_usine(
         setattr(usine, key, value)
     db.commit()
     db.refresh(usine)
-    return usine
+    zone = db.query(models.Zone).filter(models.Zone.id == usine.zone_id).first()
+    zone_nom = zone.nom if zone else None
+    return {
+        "id": usine.id,
+        "nom": usine.nom,
+        "zone_id": usine.zone_id,
+        "capacite_kg_jour": usine.capacite_kg_jour,
+        "zone_nom": zone_nom
+    }
 
 @router.delete("/{usine_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_usine(

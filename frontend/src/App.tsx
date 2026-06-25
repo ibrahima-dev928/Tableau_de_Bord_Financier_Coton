@@ -18,25 +18,78 @@ import AdminAchats from './pages/AdminAchats';
 import SaisieTransformations from './pages/Terrain/SaisieTransformations';
 import SaisieVentes from './pages/Terrain/SaisieVentes';
 
+// ==================== PRIVATE ROUTE (simple token) ====================
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
   return token ? <>{children}</> : <Navigate to="/login" />;
 }
 
+// ==================== PROTECTED ROUTE (avec vérification de rôle) ====================
+function ProtectedRoute({ children, allowedRoles }: { children: JSX.Element; allowedRoles: string[] }) {
+  const { user } = useAuth();
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    return <Navigate to="/login" />;
+  }
+
+  // Récupérer le rôle : d'abord depuis le contexte, sinon depuis le token
+  let role = user?.role;
+  if (!role) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      role = payload.role || ''; // valeur par défaut si absent
+    } catch (e) {
+      return <Navigate to="/login" />;
+    }
+  }
+
+  // Si toujours pas de rôle, on redirige vers login
+  if (!role) {
+    return <Navigate to="/login" />;
+  }
+
+  // Vérification des droits
+  if (!allowedRoles.includes(role)) {
+    if (role === 'Responsable_terrain') {
+      return <Navigate to="/achats" />;
+    } else if (role === 'Comptabilite') {
+      return <Navigate to="/validation-achats" />;
+    } else {
+      return <Navigate to="/login" />;
+    }
+  }
+
+  return children;
+}
+
+// ==================== APP ====================
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <AuthProvider>
         <BrowserRouter>
           <Routes>
+            {/* Page de connexion (publique) */}
             <Route path="/login" element={<Login />} />
+
+            {/* Routes protégées par authentification (token requis) */}
             <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-              <Route path="/" element={<DashboardDirection />} />
+              {/* Page d'accueil - réservée à la Direction */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute allowedRoles={['Direction']}>
+                    <DashboardDirection />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Autres pages accessibles selon les rôles (gérées par le menu) */}
               <Route path="/achats" element={<SaisieAchats />} />
               <Route path="/validation-achats" element={<ValidationAchats />} />
               <Route path="/rapports" element={<Rapports />} />
               <Route path="/zones" element={<ZonesUsines />} />
-              <Route path="/admin-achats" element={<AdminAchats />} />
               <Route path="/zones-usines" element={<ZonesUsines />} />
               <Route path="/utilisateurs" element={<Utilisateurs />} />
               <Route path="/producteurs" element={<Producteurs />} />
@@ -44,6 +97,7 @@ function App() {
               <Route path="/saisie-transformations" element={<SaisieTransformations />} />
               <Route path="/saisie-ventes" element={<SaisieVentes />} />
               <Route path="/parametres" element={<Parametres />} />
+              <Route path="/admin-achats" element={<AdminAchats />} />
             </Route>
           </Routes>
         </BrowserRouter>

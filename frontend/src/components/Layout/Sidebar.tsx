@@ -24,7 +24,7 @@ export default function Sidebar() {
       text: 'Dashboard',
       icon: <DashboardIcon />,
       path: '/',
-      roles: ['Direction', 'Comptabilite', 'Responsable_terrain']
+      roles: ['Direction']
     },
     {
       text: 'Saisie Achats',

@@ -45,7 +45,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { access_token } = response.data;
     localStorage.setItem('token', access_token);
     setToken(access_token);
-    // Le décodage se fera via l'effet ci-dessus
+    // 👇 FORCER LA REDIRECTION VERS LA PAGE D'ACCUEIL
+    window.location.href = '/';
   };
 
   const logout = () => {

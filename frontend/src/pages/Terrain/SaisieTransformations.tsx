@@ -1,12 +1,14 @@
-// src/pages/Terrain/SaisieTransformations.tsx
+// frontend/src/pages/Terrain/SaisieTransformations.tsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, TextField, Button, MenuItem, Select,
-  FormControl, InputLabel, Alert, CircularProgress, Grid, SelectChangeEvent
+  FormControl, InputLabel, Alert, CircularProgress, Grid, Card, CardContent,
+  SelectChangeEvent
 } from '@mui/material';
+import { Save } from '@mui/icons-material';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
-import { formatError } from '../../utils/formatError';
 
 interface Usine {
   id: string;
@@ -15,6 +17,7 @@ interface Usine {
 
 export default function SaisieTransformations() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [usines, setUsines] = useState<Usine[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,7 +28,7 @@ export default function SaisieTransformations() {
     qte_fibre_kg: '',
     qte_graine_kg: '',
     cout_transformation: '',
-    date: ''
+    date: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
@@ -35,7 +38,7 @@ export default function SaisieTransformations() {
         setUsines(res.data);
       } catch (err) {
         console.error(err);
-        setUsines([{ id: 'u1', nom: 'Usine Garoua' }]);
+        setError('Erreur de chargement des usines');
       }
     };
     fetchUsines();
@@ -66,39 +69,44 @@ export default function SaisieTransformations() {
         date: formData.date || new Date().toISOString().split('T')[0]
       };
       await api.post('/transformations', payload);
-      setSuccess('Transformation enregistrée');
+      setSuccess('Transformation enregistrée avec succès');
       setFormData({
         usine_id: '',
         qte_coton_graine_kg: '',
         qte_fibre_kg: '',
         qte_graine_kg: '',
         cout_transformation: '',
-        date: ''
+        date: new Date().toISOString().split('T')[0]
       });
-    } catch (err) {
-      setError(formatError(err));
+      // ✅ Redirection vers le dashboard avec rafraîchissement
+      navigate('/?refresh=' + Date.now());
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Erreur lors de l\'enregistrement');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>Saisie transformation (égrenage)</Typography>
+    <Box sx={{ p: 3, bgcolor: '#f5f6fa', minHeight: '100vh' }}>
+      <Typography variant="h5" fontWeight="bold" color="primary" gutterBottom>
+        Saisie transformation (égrenage)
+      </Typography>
+
       <Paper sx={{ p: 3 }}>
-        {error && <Alert severity="error">{error}</Alert>}
-        {success && <Alert severity="success">{success}</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
+              <FormControl fullWidth required>
                 <InputLabel>Usine</InputLabel>
                 <Select
                   name="usine_id"
                   value={formData.usine_id}
                   onChange={handleSelectChange}
                   label="Usine"
-                  required
                 >
                   {usines.map((u) => (
                     <MenuItem key={u.id} value={u.id}>{u.nom}</MenuItem>
@@ -163,8 +171,13 @@ export default function SaisieTransformations() {
               />
             </Grid>
             <Grid item xs={12}>
-              <Button type="submit" variant="contained" disabled={loading}>
-                {loading ? <CircularProgress size={24} /> : 'Enregistrer'}
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<Save />}
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : 'Enregistrer la transformation'}
               </Button>
             </Grid>
           </Grid>

@@ -13,6 +13,7 @@ class UsineCreate(UsineBase):
 
 class UsineResponse(UsineBase):
     id: UUID
+    zone_nom: Optional[str] = None 
 
     class Config:
         from_attributes = True

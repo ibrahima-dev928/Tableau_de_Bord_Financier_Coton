@@ -1,15 +1,18 @@
-// src/pages/Terrain/SaisieVentes.tsx
+// frontend/src/pages/Terrain/SaisieVentes.tsx
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, TextField, Button, MenuItem, Select,
-  FormControl, InputLabel, Alert, CircularProgress, Grid, SelectChangeEvent
+  FormControl, InputLabel, Alert, CircularProgress, Grid, Card, CardContent,
+  SelectChangeEvent
 } from '@mui/material';
+import { Save } from '@mui/icons-material';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
-import { formatError } from '../../utils/formatError';
 
 export default function SaisieVentes() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -19,7 +22,7 @@ export default function SaisieVentes() {
     prix_unitaire: '',
     devise: 'FCFA',
     couts_logistiques: '0',
-    date: ''
+    date: new Date().toISOString().split('T')[0]
   });
 
   const handleTextFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,39 +50,44 @@ export default function SaisieVentes() {
         date: formData.date || new Date().toISOString().split('T')[0]
       };
       await api.post('/ventes', payload);
-      setSuccess('Vente enregistrée');
+      setSuccess('Vente enregistrée avec succès');
       setFormData({
         type_vente: '',
         quantite_kg: '',
         prix_unitaire: '',
         devise: 'FCFA',
         couts_logistiques: '0',
-        date: ''
+        date: new Date().toISOString().split('T')[0]
       });
-    } catch (err) {
-      setError(formatError(err));
+      // ✅ Redirection vers le dashboard avec rafraîchissement
+      navigate('/?refresh=' + Date.now());
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Erreur lors de l\'enregistrement');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>Saisie d'une vente</Typography>
+    <Box sx={{ p: 3, bgcolor: '#f5f6fa', minHeight: '100vh' }}>
+      <Typography variant="h5" fontWeight="bold" color="primary" gutterBottom>
+        Saisie d'une vente
+      </Typography>
+
       <Paper sx={{ p: 3 }}>
-        {error && <Alert severity="error">{error}</Alert>}
-        {success && <Alert severity="success">{success}</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
+              <FormControl fullWidth required>
                 <InputLabel>Type de vente</InputLabel>
                 <Select
                   name="type_vente"
                   value={formData.type_vente}
                   onChange={handleSelectChange}
                   label="Type de vente"
-                  required
                 >
                   <MenuItem value="Fibre">Fibre</MenuItem>
                   <MenuItem value="Graines">Graines</MenuItem>
@@ -148,7 +156,12 @@ export default function SaisieVentes() {
               />
             </Grid>
             <Grid item xs={12}>
-              <Button type="submit" variant="contained" disabled={loading}>
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<Save />}
+                disabled={loading}
+              >
                 {loading ? <CircularProgress size={24} /> : 'Enregistrer la vente'}
               </Button>
             </Grid>

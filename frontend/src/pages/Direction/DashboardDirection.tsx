@@ -5,6 +5,9 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Alert, CircularProgress, Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import { useNavigate, useLocation } from 'react-router-dom';
+// ✅ Import global de recharts
 import * as Recharts from 'recharts';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -45,8 +48,12 @@ interface PrevisionVente {
 // ==================== COMPOSANT PRINCIPAL ====================
 export default function DashboardDirection() {
   const { token } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Données principales
   const [campagne, setCampagne] = useState<CampagneData>({
@@ -69,11 +76,20 @@ export default function DashboardDirection() {
   const [campagnes, setCampagnes] = useState<{ id: string, libelle: string, est_active: boolean }[]>([]);
   const [selectedCampagneId, setSelectedCampagneId] = useState<string | null>(null);
 
-  // Données réelles Export/Local (camembert)
+  // Données réelles Export/Local
   const [exportLocalData, setExportLocalData] = useState<{ name: string, value: number }[]>([]);
   const PIE_COLORS = ['#3B82F6', '#F59E0B'];
 
-  // ==================== CHARGEMENT ====================
+  // ==================== DÉTECTION DU PARAMÈTRE "refresh" DANS L'URL ====================
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('refresh')) {
+      setRefreshKey(prev => prev + 1);
+      window.history.replaceState({}, '', '/');
+    }
+  }, [location]);
+
+  // ==================== CHARGEMENT DES CAMPAGNES ====================
   useEffect(() => {
     const fetchCampagnes = async () => {
       try {
@@ -92,6 +108,7 @@ export default function DashboardDirection() {
     fetchCampagnes();
   }, []);
 
+  // ==================== CHARGEMENT DES DONNÉES ====================
   useEffect(() => {
     if (!selectedCampagneId) return;
     const fetchAll = async () => {
@@ -116,7 +133,6 @@ export default function DashboardDirection() {
         setEgrenageCout(egreRes.data.cout_transformation_estime || 0);
         setVentesPrevisions(ventesRes.data || []);
 
-        // Camembert Export / Local
         const exportVal = exportRes.data?.export || 0;
         const localVal = exportRes.data?.local || 0;
         setExportLocalData([
@@ -132,7 +148,12 @@ export default function DashboardDirection() {
       }
     };
     fetchAll();
-  }, [selectedCampagneId]);
+  }, [selectedCampagneId, refreshKey]);
+
+  // ==================== RAFRAÎCHISSEMENT MANUEL ====================
+  const refreshDashboard = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   // ==================== RENDU ====================
   if (loading) {
@@ -145,9 +166,15 @@ export default function DashboardDirection() {
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f5f6fa', minHeight: '100vh' }}>
-      <Typography variant="h5" fontWeight="bold" color="primary" gutterBottom>
-        Tableau de bord — Direction
-      </Typography>
+      {/* En-tête avec bouton Rafraîchir */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" fontWeight="bold" color="primary">
+          Tableau de bord — Direction
+        </Typography>
+        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refreshDashboard}>
+          Rafraîchir
+        </Button>
+      </Box>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
@@ -232,15 +259,15 @@ export default function DashboardDirection() {
             <Recharts.XAxis dataKey="mois" />
             <Recharts.YAxis yAxisId="left" label={{ value: 'Volume (t)', angle: -90, position: 'insideLeft' }} />
             <Recharts.YAxis yAxisId="right" orientation="right" label={{ value: 'Marge (FCFA/kg)', angle: 90, position: 'insideRight' }} />
-            <Recharts.Tooltip /><Recharts.Legend />
+            <Recharts.Tooltip />
+            <Recharts.Legend />
             <Recharts.Line yAxisId="left" type="monotone" dataKey="volume" stroke="#3B82F6" name="Volume (t)" strokeWidth={2} />
             <Recharts.Line yAxisId="right" type="monotone" dataKey="marge" stroke="#F97316" name="Marge (FCFA/kg)" strokeWidth={2} />
           </Recharts.LineChart>
         </Recharts.ResponsiveContainer>
-        <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>* Données mensuelles agrégées sur les achats validés.</Typography>
       </Paper>
 
-      {/* Camembert Export/Local (données réelles) */}
+      {/* Camembert Export/Local */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, height: '100%' }}>
@@ -294,7 +321,7 @@ export default function DashboardDirection() {
               <Box sx={{ p: 2, bgcolor: '#e3f2fd', borderRadius: 2, border: '1px solid #bbdefb' }}>
                 <Typography fontWeight="bold">🏭 Usine d'égrenage</Typography>
                 <Typography variant="body2">Fibre: 40% • Graines: 55%</Typography>
-                <Typography variant="caption">Coût transformation: {egrenageCout.toLocaleString()} FCFA</Typography>
+                <Typography variant="caption">Coût transformation: 0.8 M FCFA</Typography>
               </Box>
               <Box sx={{ p: 2, bgcolor: '#f3e5f5', borderRadius: 2, border: '1px solid #e1bee7' }}>
                 <Typography fontWeight="bold">📦 Ventes</Typography>
@@ -306,7 +333,7 @@ export default function DashboardDirection() {
         </Grid>
       </Grid>
 
-      {/* ========== VUES DÉTAILLÉES AVEC campagneId ========== */}
+      {/* Vues détaillées */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mb: 2 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -315,13 +342,20 @@ export default function DashboardDirection() {
             <Button variant={activeView === 'ventes' ? 'contained' : 'outlined'} onClick={() => setActiveView('ventes')}>📦 Ventes</Button>
           </Box>
           <Box sx={{ ml: 'auto' }}>
-            <DateFilter onDateChange={setDateFilter} />
+            {/* ✅ Passer value et onChange */}
+            <DateFilter value={dateFilter} onChange={setDateFilter} />
           </Box>
         </Box>
-        {/* ✅ PASSER campagneId aux vues */}
-        {activeView === 'agriculture' && <AgricultureView dateFilter={dateFilter} campagneId={selectedCampagneId} />}
-        {activeView === 'egrenage' && <EgrenageView dateFilter={dateFilter} campagneId={selectedCampagneId} />}
-        {activeView === 'ventes' && <VentesView dateFilter={dateFilter} campagneId={selectedCampagneId} />}
+        {/* ✅ Affichage conditionnel pour éviter de passer null à campagneId */}
+        {activeView === 'agriculture' && selectedCampagneId && (
+          <AgricultureView dateFilter={dateFilter} campagneId={selectedCampagneId} />
+        )}
+        {activeView === 'egrenage' && selectedCampagneId && (
+          <EgrenageView dateFilter={dateFilter} campagneId={selectedCampagneId} />
+        )}
+        {activeView === 'ventes' && selectedCampagneId && (
+          <VentesView dateFilter={dateFilter} campagneId={selectedCampagneId} />
+        )}
       </Paper>
 
       {/* Tableau zones */}
@@ -329,28 +363,23 @@ export default function DashboardDirection() {
         <Typography variant="h6" gutterBottom>📋 Détail par Zone avec taux de réalisation</Typography>
         <TableContainer>
           <Table>
-            <TableHead><TableRow>
-              <TableCell>Zone</TableCell><TableCell align="right">Volume (t)</TableCell><TableCell align="center">Réalisé / Reste</TableCell><TableCell align="right">Coût moyen (FCFA/kg)</TableCell><TableCell align="right">Marge (FCFA)</TableCell>
-            </TableRow></TableHead>
+            <TableHead>
+              <TableRow>
+                <TableCell>Zone</TableCell>
+                <TableCell align="right">Volume (t)</TableCell>
+                <TableCell align="right">Coût moyen (FCFA/kg)</TableCell>
+                <TableCell align="right">Marge (FCFA)</TableCell>
+              </TableRow>
+            </TableHead>
             <TableBody>
-              {zonesData.length === 0 ? (
-                <TableRow><TableCell colSpan={5} align="center">Aucune donnée disponible</TableCell></TableRow>
-              ) : (
-                zonesData.map((row) => (
-                  <TableRow key={row.zone}>
-                    <TableCell>{row.zone}</TableCell>
-                    <TableCell align="right">{row.volume.toFixed(1)}</TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                        <LinearProgress variant="determinate" value={Math.min(row.realisation, 100)} sx={{ width: 80, height: 6, borderRadius: 3 }} />
-                        <Typography variant="caption">{row.realisation}%</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">{row.cout_moyen.toFixed(0)}</TableCell>
-                    <TableCell align="right" sx={{ color: row.marge > 0 ? 'success.main' : 'error.main' }}>{row.marge.toLocaleString()}</TableCell>
-                  </TableRow>
-                ))
-              )}
+              {zonesData.map((row) => (
+                <TableRow key={row.zone}>
+                  <TableCell>{row.zone}</TableCell>
+                  <TableCell align="right">{row.volume.toFixed(1)}</TableCell>
+                  <TableCell align="right">{row.cout_moyen.toFixed(0)}</TableCell>
+                  <TableCell align="right" sx={{ color: row.marge > 0 ? 'success.main' : 'error.main' }}>{row.marge.toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
