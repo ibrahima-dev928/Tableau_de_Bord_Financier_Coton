@@ -47,7 +47,29 @@ def get_achats(
     if current_user.role == "Responsable_terrain":
         query = query.filter(models.Achat.zone_id == current_user.zone_id)
     achats = query.offset(skip).limit(limit).all()
-    return achats
+    
+    result = []
+    for a in achats:
+        # Récupérer les noms
+        producteur = db.query(models.Producteur).filter(models.Producteur.id == a.producteur_id).first()
+        zone = db.query(models.Zone).filter(models.Zone.id == a.zone_id).first()
+        saisi_par = db.query(models.User).filter(models.User.id == a.saisi_par_id).first()
+        
+        result.append({
+            "id": a.id,
+            "date_achat": a.date_achat,
+            "producteur_id": a.producteur_id,
+            "zone_id": a.zone_id,
+            "quantite_kg": a.quantite_kg,
+            "prix_kg": a.prix_kg,
+            "montant_total": a.montant_total,
+            "saisi_par_id": a.saisi_par_id,
+            "statut": a.statut,
+            "producteur_nom": f"{producteur.nom} {producteur.prenom}" if producteur else None,
+            "zone_nom": zone.nom if zone else None,
+            "saisi_par_nom": saisi_par.nom if saisi_par else None,
+        })
+    return result
 
 @router.get("/{achat_id}", response_model=schemas.AchatResponse)
 def get_achat(

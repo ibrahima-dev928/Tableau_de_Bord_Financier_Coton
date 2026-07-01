@@ -6,6 +6,8 @@ from app.database import get_db
 from app import models, schemas
 from app.utils.security import get_current_user, require_role
 from decimal import Decimal
+from typing import List, Optional
+from app.schemas.rapport import RapportCreate, RapportResponse
 
 router = APIRouter()
 
@@ -66,6 +68,19 @@ def update_vente(
     db.commit()
     db.refresh(vente)
     return vente
+
+from typing import List
+from app.schemas.vente import VenteResponse
+
+@router.get("/me", response_model=List[VenteResponse])
+def get_mes_ventes(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    ventes = db.query(models.Vente).filter(
+        models.Vente.saisi_par_id == current_user.id
+    ).order_by(models.Vente.date.desc()).limit(20).all()
+    return ventes
 
 @router.delete("/{vente_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_vente(

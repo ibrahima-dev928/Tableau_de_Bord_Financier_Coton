@@ -23,6 +23,8 @@ class User(Base):
     transformations = relationship("Transformation", foreign_keys="Transformation.saisi_par_id", back_populates="saisi_par")
     ventes = relationship("Vente", foreign_keys="Vente.saisi_par_id", back_populates="saisi_par")
     rapports_generes = relationship("Rapport", foreign_keys="Rapport.genere_par_id", back_populates="genere_par")
+    # Dans User
+    notifications = relationship("Notification", back_populates="utilisateur")
 
 
 class Zone(Base):
@@ -197,3 +199,16 @@ class PrevisionVente(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     campagne = relationship("Campagne")   # <-- sans back_populates
+
+# app/models.py
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    utilisateur_id = Column(UUID(as_uuid=True), ForeignKey("utilisateurs.id"), nullable=False)
+    message = Column(String, nullable=False)
+    type = Column(String, nullable=False)  # 'achat', 'transformation', 'vente', 'rapport'
+    reference_id = Column(UUID(as_uuid=True), nullable=True)
+    lu = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    utilisateur = relationship("User", back_populates="notifications")

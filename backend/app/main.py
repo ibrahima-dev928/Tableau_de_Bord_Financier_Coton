@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
 from app.base import Base
 import app.models
+from app.routers import notifications_router
 from app.routers import stats_router
 from app.routers import exportations_router
 from app.routers import campagnes_router
@@ -19,7 +20,8 @@ from app.routers import (
     usines_router,
     exportations_router,
     parametres_router,
-    logs_router
+    logs_router,
+    notifications_router,
 )
 
 app = FastAPI(title="SODECOTON Financial Dashboard API")
@@ -52,6 +54,7 @@ app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
 app.include_router(parametres_router, prefix="/api/parametres", tags=["Paramètres"])
 #app.include_router(campagnes_router, prefix="/api") 
 app.include_router(campagnes_router, prefix="/api/campagnes", tags=["Campagnes"])
+app.include_router(notifications_router, prefix="/api/notifications", tags=["Notifications"])
 
 @app.get("/")
 def root():

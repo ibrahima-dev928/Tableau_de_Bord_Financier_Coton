@@ -12,3 +12,4 @@ from .stats import router as stats_router
 from .exportations import router as exportations_router
 from .logs import router as logs_router
 from .campagnes import router as campagnes_router
+from .notifications import router as notifications_router

@@ -3,12 +3,13 @@ import { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, Grid, Card, CardContent,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, Chip, IconButton, TextField, MenuItem, Select, FormControl, InputLabel,
-  Tabs, Tab, CircularProgress, Alert
+  Button, Chip, IconButton, FormControl, InputLabel, Select, MenuItem,
+  CircularProgress, Alert
 } from '@mui/material';
-import { Check, Close, Visibility, PictureAsPdf, Download } from '@mui/icons-material';
+import { Check, Close, Visibility, Download } from '@mui/icons-material';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
+import MesActivites from '../../components/MesActivites';
 
 interface Achat {
   id: string;
@@ -22,6 +23,7 @@ interface Achat {
   montant_total: number;
   statut: 'en_attente' | 'valide' | 'rejete';
   saisi_par_id: string;
+  saisi_par_nom?: string;
 }
 
 export default function ValidationAchats() {
@@ -48,21 +50,19 @@ export default function ValidationAchats() {
 
   const fetchData = async () => {
     setLoading(true);
+    setError('');
     try {
       const [achatsRes, zonesRes] = await Promise.all([
         api.get('/achats'),
         api.get('/zones')
       ]);
-      setAchats(achatsRes.data);
-      setZones(zonesRes.data);
+      setAchats(achatsRes.data || []);
+      setZones(zonesRes.data || []);
     } catch (err) {
-      console.error(err);
-      // Mock en cas d'erreur
-      setAchats([
-        { id: '1', date_achat: '2026-06-15', producteur_id: 'p1', producteur_nom: 'Diallo Amadou', zone_id: 'z1', zone_nom: 'Extrême-Nord', quantite_kg: 500, prix_kg: 250, montant_total: 125000, statut: 'en_attente', saisi_par_id: 'u1' },
-        { id: '2', date_achat: '2026-06-14', producteur_id: 'p2', producteur_nom: 'Sow Moussa', zone_id: 'z2', zone_nom: 'Nord', quantite_kg: 300, prix_kg: 255, montant_total: 76500, statut: 'en_attente', saisi_par_id: 'u2' }
-      ]);
-      setZones([{ id: 'z1', nom: 'Extrême-Nord' }, { id: 'z2', nom: 'Nord' }]);
+      console.error('Erreur chargement :', err);
+      setError('Impossible de charger les données. Veuillez réessayer.');
+      setAchats([]);
+      setZones([]);
     } finally {
       setLoading(false);
     }
@@ -70,24 +70,33 @@ export default function ValidationAchats() {
 
   const handleValidation = async (id: string, action: 'valider' | 'rejeter') => {
     setLoading(true);
+    setError('');
+    setSuccess('');
     try {
       const endpoint = action === 'valider' ? `/achats/${id}/valider` : `/achats/${id}/rejeter`;
       await api.put(endpoint);
       setSuccess(`Achat ${action === 'valider' ? 'validé' : 'rejeté'} avec succès`);
-      fetchData();
-      setTimeout(() => setSuccess(''), 3000);
+      await fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erreur');
-      setTimeout(() => setError(''), 3000);
+      setError(err.response?.data?.detail || 'Erreur lors de la validation');
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ Statistiques : le montant total de la semaine est calculé sur les achats EN ATTENTE
   const stats = {
     enAttente: achats.filter(a => a.statut === 'en_attente').length,
-    valideesAujourdhui: achats.filter(a => a.statut === 'valide' && new Date(a.date_achat).toDateString() === new Date().toDateString()).length,
-    montantSemaine: achats.filter(a => a.statut === 'valide' && new Date(a.date_achat) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).reduce((sum, a) => sum + a.montant_total, 0)
+    valideesAujourdhui: achats.filter(
+      a => a.statut === 'valide' &&
+        new Date(a.date_achat).toDateString() === new Date().toDateString()
+    ).length,
+    montantSemaine: achats
+      .filter(
+        a => a.statut === 'en_attente' &&
+          new Date(a.date_achat) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      )
+      .reduce((sum, a) => sum + (Number(a.montant_total) || 0), 0),
   };
 
   return (
@@ -118,11 +127,18 @@ export default function ValidationAchats() {
           <Card>
             <CardContent>
               <Typography variant="body2" color="textSecondary">Montant total (semaine)</Typography>
-              <Typography variant="h3" fontWeight="bold">{(stats.montantSemaine / 1e6).toFixed(1)} M FCFA</Typography>
+              <Typography variant="h3" fontWeight="bold">
+                {isNaN(stats.montantSemaine) || stats.montantSemaine === 0
+                  ? '0.0 M FCFA'
+                  : `${(stats.montantSemaine / 1e6).toFixed(1)} M FCFA`}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
       <Paper sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 2 }}>
@@ -146,16 +162,17 @@ export default function ValidationAchats() {
           <Button variant="outlined" startIcon={<Download />}>Exporter</Button>
         </Box>
 
-        {error && <Alert severity="error">{error}</Alert>}
-        {success && <Alert severity="success">{success}</Alert>}
-
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell><TableCell>Type</TableCell><TableCell>Zone</TableCell>
-                <TableCell align="right">Montant</TableCell><TableCell>Saisi par</TableCell>
-                <TableCell>Statut</TableCell><TableCell align="center">Action</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Zone</TableCell>
+                <TableCell align="right">Montant</TableCell>
+                <TableCell>Saisi par</TableCell>
+                <TableCell>Statut</TableCell>
+                <TableCell align="center">Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -169,11 +186,15 @@ export default function ValidationAchats() {
                 <TableRow key={a.id}>
                   <TableCell>{new Date(a.date_achat).toLocaleDateString()}</TableCell>
                   <TableCell>Achat</TableCell>
-                  <TableCell>{a.zone_nom}</TableCell>
+                  <TableCell>{a.zone_nom || a.zone_id}</TableCell>
                   <TableCell align="right">{a.montant_total.toLocaleString()} FCFA</TableCell>
-                  <TableCell>{a.saisi_par_id?.slice(0, 8)}</TableCell>
+                  <TableCell>{a.saisi_par_nom || a.saisi_par_id?.slice(0, 8)}</TableCell>
                   <TableCell>
-                    <Chip label={a.statut} color={a.statut === 'en_attente' ? 'warning' : a.statut === 'valide' ? 'success' : 'error'} size="small" />
+                    <Chip
+                      label={a.statut}
+                      color={a.statut === 'en_attente' ? 'warning' : a.statut === 'valide' ? 'success' : 'error'}
+                      size="small"
+                    />
                   </TableCell>
                   <TableCell align="center">
                     {a.statut === 'en_attente' ? (
@@ -195,6 +216,9 @@ export default function ValidationAchats() {
           </Table>
         </TableContainer>
       </Paper>
+
+      {/* ✅ Ajout du composant MesActivites */}
+      <MesActivites />
     </Box>
   );
 }

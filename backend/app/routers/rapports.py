@@ -14,6 +14,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import openpyxl
 from io import BytesIO
+from typing import List, Optional
+from app.schemas.rapport import RapportCreate, RapportResponse
 
 router = APIRouter()
 
@@ -182,6 +184,16 @@ def download_report(
         filename=os.path.basename(rapport.fichier_path),
         media_type=media_type
     )
+
+@router.get("/me", response_model=List[RapportResponse])  # Utilisez RapportResponse
+def get_mes_rapports(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    rapports = db.query(models.Rapport).filter(
+        models.Rapport.genere_par_id == current_user.id
+    ).order_by(models.Rapport.genere_le.desc()).limit(20).all()
+    return rapports
 
 # ==================== PLANIFICATION ====================
 @router.post("/schedule")

@@ -6,6 +6,8 @@ from app.database import get_db
 from app import models, schemas
 from app.utils.security import get_current_user, require_role
 from decimal import Decimal
+from typing import List, Optional
+from app.schemas.rapport import RapportCreate, RapportResponse
 
 router = APIRouter()
 
@@ -64,6 +66,19 @@ def update_transformation(
     db.commit()
     db.refresh(transformation)
     return transformation
+
+from typing import List
+from app.schemas.transformation import TransformationResponse
+
+@router.get("/me", response_model=List[TransformationResponse])
+def get_mes_transformations(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    transformations = db.query(models.Transformation).filter(
+        models.Transformation.saisi_par_id == current_user.id
+    ).order_by(models.Transformation.date.desc()).limit(20).all()
+    return transformations
 
 @router.delete("/{transformation_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transformation(
