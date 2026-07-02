@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
 from app.base import Base
 import app.models
+from app.routers import dashboard_report_router
 from app.routers import notifications_router
 from app.routers import stats_router
 from app.routers import exportations_router
@@ -55,6 +56,7 @@ app.include_router(parametres_router, prefix="/api/parametres", tags=["Paramètr
 #app.include_router(campagnes_router, prefix="/api") 
 app.include_router(campagnes_router, prefix="/api/campagnes", tags=["Campagnes"])
 app.include_router(notifications_router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(dashboard_report_router, prefix="/api/dashboard", tags=["Dashboard"])
 
 @app.get("/")
 def root():

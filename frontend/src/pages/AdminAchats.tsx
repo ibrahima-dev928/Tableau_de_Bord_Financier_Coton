@@ -29,6 +29,9 @@ export default function AdminAchats() {
   const [achats, setAchats] = useState<Achat[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Dans le composant
+  const [filtreZone, setFiltreZone] = useState('');
+  const [filtreStatut, setFiltreStatut] = useState('');
   const [success, setSuccess] = useState('');
   const [filtres, setFiltres] = useState({
     zone_id: '',
@@ -80,8 +83,38 @@ export default function AdminAchats() {
     fetchData();
   };
 
-  const handleExport = () => {
-    alert('Export Excel en cours de développement');
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filtreZone) params.append('zone_id', filtreZone);
+      if (filtreStatut) params.append('statut', filtreStatut);
+
+      const response = await api.get('/achats/export', {
+        params: params,
+        responseType: 'blob',   // ← obligatoire
+      });
+
+      // Vérifier que le blob est valide
+      if (response.data.size === 0) {
+        setError('Le fichier exporté est vide');
+        return;
+      }
+
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `achats_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      console.error('Erreur export', err);
+      setError('Erreur lors de l\'export');
+    }
   };
 
   const getStatusColor = (statut: string) => {
@@ -201,6 +234,7 @@ export default function AdminAchats() {
                     <TableCell>{a.producteur_nom || a.producteur_id}</TableCell>
                     <TableCell>{a.zone_nom || a.zone_id}</TableCell>
                     <TableCell>{a.saisi_par_nom || a.saisi_par_id}</TableCell>
+                    <TableCell>{a.saisi_par_nom || a.saisi_par_id?.slice(0, 8)}</TableCell>
                     <TableCell align="right">{a.quantite_kg}</TableCell>
                     <TableCell align="right">{a.prix_kg}</TableCell>
                     <TableCell align="right">{a.montant_total.toLocaleString()} FCFA</TableCell>

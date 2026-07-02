@@ -3,11 +3,11 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, Grid, Card, CardContent, LinearProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, Alert, CircularProgress, Select, MenuItem, FormControl, InputLabel
+  Button, Alert, CircularProgress, Select, MenuItem, FormControl, InputLabel,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { Download } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-// ✅ Import global de recharts
 import * as Recharts from 'recharts';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -79,6 +79,9 @@ export default function DashboardDirection() {
   // Données réelles Export/Local
   const [exportLocalData, setExportLocalData] = useState<{ name: string, value: number }[]>([]);
   const PIE_COLORS = ['#3B82F6', '#F59E0B'];
+
+  // ✅ Nouvel état : format d'export
+  const [exportFormat, setExportFormat] = useState<'PDF' | 'Excel'>('Excel');
 
   // ==================== DÉTECTION DU PARAMÈTRE "refresh" DANS L'URL ====================
   useEffect(() => {
@@ -155,6 +158,37 @@ export default function DashboardDirection() {
     setRefreshKey(prev => prev + 1);
   };
 
+  // ==================== EXPORT DU DASHBOARD ====================
+  const handleExportDashboard = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedCampagneId) {
+        params.append('campagne_id', selectedCampagneId);
+      }
+      params.append('format', exportFormat.toLowerCase());
+
+      const response = await api.get('/dashboard/export', {
+        params: params,
+        responseType: 'blob',
+      });
+
+      const contentType = exportFormat === 'PDF'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+      const blob = new Blob([response.data], { type: contentType });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.download = `dashboard_${dateStr}.${exportFormat.toLowerCase() === 'pdf' ? 'pdf' : 'xlsx'}`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      console.error('Erreur export dashboard', err);
+      setError('Erreur lors de l\'export du dashboard');
+    }
+  };
+
   // ==================== RENDU ====================
   if (loading) {
     return (
@@ -166,18 +200,42 @@ export default function DashboardDirection() {
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f5f6fa', minHeight: '100vh' }}>
-      {/* En-tête avec bouton Rafraîchir */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      {/* En-tête avec sélecteur de format et boutons */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h5" fontWeight="bold" color="primary">
           Tableau de bord — Direction
         </Typography>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refreshDashboard}>
-          Rafraîchir
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refreshDashboard}>
+            Rafraîchir
+          </Button>
+
+          {/* ✅ Sélecteur de format */}
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Format</InputLabel>
+            <Select
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as 'PDF' | 'Excel')}
+              label="Format"
+            >
+              <MenuItem value="Excel">Excel</MenuItem>
+              <MenuItem value="PDF">PDF</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Button
+            variant="contained"
+            startIcon={<Download />}
+            onClick={handleExportDashboard}
+          >
+            Exporter
+          </Button>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
+      {/* ===== LE RESTE DU DASHBOARD (identique) ===== */}
       {/* Sélecteur de campagne */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <FormControl sx={{ minWidth: 250 }}>
@@ -342,11 +400,9 @@ export default function DashboardDirection() {
             <Button variant={activeView === 'ventes' ? 'contained' : 'outlined'} onClick={() => setActiveView('ventes')}>📦 Ventes</Button>
           </Box>
           <Box sx={{ ml: 'auto' }}>
-            {/* ✅ Passer value et onChange */}
             <DateFilter value={dateFilter} onChange={setDateFilter} />
           </Box>
         </Box>
-        {/* ✅ Affichage conditionnel pour éviter de passer null à campagneId */}
         {activeView === 'agriculture' && selectedCampagneId && (
           <AgricultureView dateFilter={dateFilter} campagneId={selectedCampagneId} />
         )}

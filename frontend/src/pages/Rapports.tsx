@@ -84,51 +84,18 @@ export default function Rapports() {
     }
   };
 
-  const handleSchedule = async () => {
-    if (!frequence) {
-      setError('Veuillez sélectionner une fréquence');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-    setLoading(true);
-    try {
-      await api.post('/rapports/schedule', { ...formData, cron: frequence });
-      setSuccess('Rapport planifié avec succès');
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ handleDownload avec format pour l'extension
   const handleDownload = async (id: string, format: string) => {
     try {
-      const response = await api.get(`/rapports/download/${id}`, {
-        responseType: 'blob',
-      });
+      const response = await api.get(`/rapports/download/${id}`, { responseType: 'blob' });
       const blob = new Blob([response.data]);
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-
-      // Déterminer l'extension en fonction du format
       const extension = format.toLowerCase() === 'pdf' ? 'pdf' : 'xlsx';
-      let filename = `rapport_${id}.${extension}`;
-
-      // Essayer de récupérer le nom du fichier depuis le header Content-Disposition
-      const contentDisposition = response.headers['content-disposition'];
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="(.+)"/);
-        if (match) filename = match[1];
-      }
-
-      link.download = filename;
+      link.download = `rapport_${id}.${extension}`;
       link.click();
       URL.revokeObjectURL(link.href);
     } catch (err) {
-      console.error('Erreur lors du téléchargement :', err);
-      setError('Erreur lors du téléchargement du rapport');
+      setError('Erreur lors du téléchargement');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -198,10 +165,11 @@ export default function Rapports() {
               </Button>
             </form>
 
+            {/* Planification (optionnelle) */}
             <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #ddd' }}>
               <Typography variant="subtitle2">Planifier</Typography>
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
-                <FormControl sx={{ minWidth: 150 }} size="small">
+                <FormControl sx={{ minWidth: 150 }} size="small" disabled>
                   <InputLabel>Fréquence</InputLabel>
                   <Select value={frequence} onChange={(e) => setFrequence(e.target.value)} label="Fréquence">
                     <MenuItem value="0 8 * * *">Quotidien (8h)</MenuItem>
@@ -209,8 +177,8 @@ export default function Rapports() {
                     <MenuItem value="0 8 1 * *">Mensuel (1er du mois)</MenuItem>
                   </Select>
                 </FormControl>
-                <Button variant="outlined" startIcon={<Schedule />} onClick={handleSchedule} disabled={loading}>
-                  Planifier
+                <Button variant="outlined" startIcon={<Schedule />} disabled>
+                  Planifier (bientôt disponible)
                 </Button>
               </Box>
             </Box>
@@ -239,11 +207,18 @@ export default function Rapports() {
                   {rapports.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>{r.type}</TableCell>
-                      <TableCell>{new Date(r.periode_debut).toLocaleDateString()} - {new Date(r.periode_fin).toLocaleDateString()}</TableCell>
-                      <TableCell><Chip label={r.format} size="small" color="primary" /></TableCell>
-                      <TableCell>{new Date(r.genere_le).toLocaleString()}</TableCell>
+                      <TableCell>
+                        {new Date(r.periode_debut).toLocaleDateString()} - {new Date(r.periode_fin).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={r.format}
+                          size="small"
+                          color={r.format === 'PDF' ? 'primary' : 'success'}
+                        />
+                      </TableCell>
+                      <TableCell>{new Date(r.genere_le).toLocaleDateString()}</TableCell>
                       <TableCell align="center">
-                        {/* ✅ Passage de r.format à la fonction */}
                         <IconButton onClick={() => handleDownload(r.id, r.format)} color="primary">
                           <Download />
                         </IconButton>

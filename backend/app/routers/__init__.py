@@ -13,3 +13,4 @@ from .exportations import router as exportations_router
 from .logs import router as logs_router
 from .campagnes import router as campagnes_router
 from .notifications import router as notifications_router
+from .dashboard_report import router as dashboard_report_router
