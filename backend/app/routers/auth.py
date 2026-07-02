@@ -8,6 +8,10 @@ from app.database import get_db
 from app.config import settings
 from app.models import User
 from app.schemas.auth import Token
+import pyotp
+import qrcode
+from io import BytesIO
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

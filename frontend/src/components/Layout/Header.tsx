@@ -3,14 +3,16 @@ import { useState, useEffect } from 'react';
 import {
   AppBar, Toolbar, Typography, IconButton, Box, Avatar,
   Menu, MenuItem, Badge, Popover, List, ListItem, ListItemText,
-  Divider
+  Divider, useTheme
 } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import MenuIcon from '@mui/icons-material/Menu';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { useThemeContext } from '../../contexts/ThemeContext';
 
-// ✅ Interface pour les notifications
 interface Notification {
   id: string;
   message: string;
@@ -24,22 +26,24 @@ interface HeaderProps {
 
 export default function Header({ onMenuToggle }: HeaderProps) {
   const { user, logout } = useAuth();
+  const { toggleTheme, darkMode } = useThemeContext();
+  const theme = useTheme();
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notifAnchorEl, setNotifAnchorEl] = useState<null | HTMLElement>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Récupérer les notifications (via API ou WebSocket)
+  // Récupérer les notifications (polling)
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        // Exemple avec une API REST classique
-        const res = await api.get('/notifications');
+        const res = await api.get('/notifications/me');
         setNotifications(res.data);
         setUnreadCount(res.data.filter((n: Notification) => !n.lu).length);
       } catch (err) {
         console.error('Erreur chargement notifications', err);
-        // Données mockées pour le test
+        // Mock pour le test
         const mockNotifs: Notification[] = [
           { id: '1', message: 'Nouvel achat enregistré par Terrain Nord', date: new Date().toISOString(), lu: false },
           { id: '2', message: 'Transformation validée par Comptabilité', date: new Date().toISOString(), lu: false },
@@ -50,6 +54,8 @@ export default function Header({ onMenuToggle }: HeaderProps) {
       }
     };
     fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000); // 30 secondes
+    return () => clearInterval(interval);
   }, []);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -95,7 +101,12 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           SODECOTON – Tableau de bord financier
         </Typography>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* 🌙 Mode sombre */}
+          <IconButton color="inherit" onClick={toggleTheme}>
+            {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+          </IconButton>
+
           {/* 🔔 Notifications */}
           <IconButton color="inherit" onClick={handleNotifClick}>
             <Badge badgeContent={unreadCount} color="error">

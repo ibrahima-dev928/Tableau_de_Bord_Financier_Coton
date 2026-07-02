@@ -1,7 +1,8 @@
+// src/App.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext'; // ✅ Notre ThemeProvider
 import Layout from './components/Layout/Layout';
 import DashboardDirection from './pages/Direction/DashboardDirection';
 import ValidationAchats from './pages/Comptabilite/ValidationAchats';
@@ -13,51 +14,39 @@ import Producteurs from './pages/Producteurs';
 import Exportations from './pages/Exportations';
 import Parametres from './pages/Parametres';
 import Login from './pages/Login';
-import { theme } from './theme';
 import AdminAchats from './pages/AdminAchats';
 import SaisieTransformations from './pages/Terrain/SaisieTransformations';
 import SaisieVentes from './pages/Terrain/SaisieVentes';
 
-// ==================== PRIVATE ROUTE (simple token) ====================
+// ==================== PRIVATE ROUTE ====================
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
   return token ? <>{children}</> : <Navigate to="/login" />;
 }
 
-// ==================== PROTECTED ROUTE (avec vérification de rôle) ====================
+// ==================== PROTECTED ROUTE ====================
 function ProtectedRoute({ children, allowedRoles }: { children: JSX.Element; allowedRoles: string[] }) {
   const { user } = useAuth();
   const token = localStorage.getItem('token');
 
-  if (!token) {
-    return <Navigate to="/login" />;
-  }
+  if (!token) return <Navigate to="/login" />;
 
-  // Récupérer le rôle : d'abord depuis le contexte, sinon depuis le token
   let role = user?.role;
   if (!role) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      role = payload.role || ''; // valeur par défaut si absent
-    } catch (e) {
+      role = payload.role || '';
+    } catch {
       return <Navigate to="/login" />;
     }
   }
 
-  // Si toujours pas de rôle, on redirige vers login
-  if (!role) {
-    return <Navigate to="/login" />;
-  }
+  if (!role) return <Navigate to="/login" />;
 
-  // Vérification des droits
   if (!allowedRoles.includes(role)) {
-    if (role === 'Responsable_terrain') {
-      return <Navigate to="/achats" />;
-    } else if (role === 'Comptabilite') {
-      return <Navigate to="/validation-achats" />;
-    } else {
-      return <Navigate to="/login" />;
-    }
+    if (role === 'Responsable_terrain') return <Navigate to="/achats" />;
+    if (role === 'Comptabilite') return <Navigate to="/validation-achats" />;
+    return <Navigate to="/login" />;
   }
 
   return children;
@@ -66,16 +55,12 @@ function ProtectedRoute({ children, allowedRoles }: { children: JSX.Element; all
 // ==================== APP ====================
 function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            {/* Page de connexion (publique) */}
             <Route path="/login" element={<Login />} />
-
-            {/* Routes protégées par authentification (token requis) */}
             <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-              {/* Page d'accueil - réservée à la Direction */}
               <Route
                 path="/"
                 element={
@@ -84,8 +69,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
-              {/* Autres pages accessibles selon les rôles (gérées par le menu) */}
               <Route path="/achats" element={<SaisieAchats />} />
               <Route path="/validation-achats" element={<ValidationAchats />} />
               <Route path="/rapports" element={<Rapports />} />
